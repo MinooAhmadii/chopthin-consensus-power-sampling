@@ -1,0 +1,86 @@
+#!/usr/bin/env python3
+"""Oracle vs selected accuracy across experiments: is the bottleneck COVERAGE or SELECTION?
+oracle = fraction of problems where >=1 particle is correct (best-of-N).
+gap = oracle - accuracy = problems solvable-but-not-selected (selector waste)."""
+import json, os, glob, sys
+from transformers import AutoTokenizer
+from run_baseline import extract_answer_3tier, grade_answer_3tier
+
+ROOT = "/data/projects/nullanet/experiments/minoo/choptin/runs"
+MODEL = "Qwen/Qwen2.5-Math-7B-Instruct"
+tok = AutoTokenizer.from_pretrained(MODEL)
+
+HE_PROBS = {}
+def load_he():
+    if HE_PROBS: return
+    p = "/data/projects/nullanet/experiments/minoo/choptin/HumanEval.jsonl"
+    for line in open(p):
+        r = json.loads(line)
+        HE_PROBS[r["task_id"]] = r
+
+def grade_particle(text, gold, dataset, prob_meta):
+    if dataset == "humaneval":
+        ext, _ = extract_answer_3tier(text, "humaneval", problem=prob_meta)
+        return grade_answer_3tier(ext, gold, "humaneval", problem=prob_meta)
+    ext, _ = extract_answer_3tier(text, dataset)
+    return grade_answer_3tier(ext, gold, dataset)
+
+def analyze(arm_dir, dataset, limit=None):
+    files = sorted(glob.glob(os.path.join(ROOT, arm_dir, "per_run", "*.json")))
+    if limit: files = files[:limit]
+    n=sel=oracle=0
+    chop_extra=0
+    oracle_set=set(); sel_set=set()
+    for f in files:
+        d = json.load(open(f))
+        gold = d["gold_answer"]
+        seqs = d["all_particle_token_ids"]
+        ci = d["chosen_idx"]
+        rlen = d.get("response_length_tokens", 0)
+        pl = max(0, len(seqs[ci]) - rlen)
+        prob_meta = None
+        if dataset == "humaneval":
+            load_he()
+            prob_meta = HE_PROBS.get(d.get("problem_id")) or HE_PROBS.get(d.get("metadata",{}).get("task_id"))
+        any_ok=False
+        for seq in seqs:
+            text = tok.decode(seq[pl:], skip_special_tokens=True)
+            if grade_particle(text, gold, dataset, prob_meta):
+                any_ok=True
+                if dataset != "humaneval":   # for speed, stop early on non-code
+                    break
+        n+=1
+        s=bool(d["correct"]); sel+=int(s)
+        oracle+=int(any_ok)
+        if s: sel_set.add(d["problem_idx"])
+        if any_ok: oracle_set.add(d["problem_idx"])
+    return dict(n=n, sel=sel, oracle=oracle, sel_set=sel_set, oracle_set=oracle_set)
+
+def report(label, bd, cd, dataset, limit=None):
+    b=analyze(bd,dataset,limit); c=analyze(cd,dataset,limit)
+    ba=100*b['sel']/b['n']; bo=100*b['oracle']/b['n']
+    ca=100*c['sel']/c['n']; co=100*c['oracle']/c['n']
+    # chop oracle gain over base; coverage exclusive
+    chop_only = len(c['oracle_set'] - b['oracle_set'])
+    base_only = len(b['oracle_set'] - c['oracle_set'])
+    print(f"{label:<24} base: acc={ba:4.1f}% orc={bo:4.1f}% gap={bo-ba:4.1f} | "
+          f"chop: acc={ca:4.1f}% orc={co:4.1f}% gap={co-ca:4.1f} | "
+          f"orcΔ={co-bo:+4.1f} (chop-only {chop_only}, base-only {base_only})")
+    return dict(b=b,c=c)
+
+if __name__=="__main__":
+    which = sys.argv[1] if len(sys.argv)>1 else "math"
+    print(f"{'comparison':<24} {'BASELINE':^28} | {'CHOPTHIN':^28} | oracle delta")
+    print("-"*120)
+    if which in ("math","all"):
+        report("MATH N=8 a2","math500_n8_s42/a2_A","math500_n8_s42/a2_C","math")
+        report("MATH N=16 a2","math500_n16_s42/a2_A","math500_n16_s42/a2_C","math")
+        report("MATH N=32 a2","full_math500_n32_s42/a2_A","full_math500_n32_s42/a2_C","math")
+        report("MATH N=32 a4","full_math500_n32_s42/a4_A","full_math500_n32_s42/a4_C","math")
+        report("MATH N=64 a2","full_math500_n64_s42/a2_A","full_math500_n64_s42/a2_C","math")
+    if which in ("gsm8k","all"):
+        report("GSM8K N=32 a2","gsm8k_full_n32_s42/a2_A","gsm8k_full_n32_s42/a2_C","gsm8k")
+    if which in ("he","all"):
+        report("HEval N=8 a2","humaneval_n8_s42/a2_A","humaneval_n8_s42/a2_C","humaneval")
+        report("HEval N=16 a2","humaneval_n16_s42/a2_A","humaneval_n16_s42/a2_C","humaneval")
+        report("HEval N=32 a2","humaneval_n32_s42/a2_A","humaneval_n32_s42/a2_C","humaneval")
