@@ -116,17 +116,8 @@ def _chopthin_resample(w, eta, N, generator):
         torch.randint(0, 2_147_483_647, (1,), generator=generator, device=device).item()
     )
     idx, new_w = chopthin(w_list, float(eta), int(N), random.Random(seed))
-    # Safety: chopthin returns exactly N by construction, EXCEPT at a rare integer-rounding
-    # boundary (thin-survivor count rounds up + heavy fractional mass ~0 -> N_U<0 -> N+/-1
-    # offspring). Guarantee exactly N ancestors so a length mismatch can never crash a
-    # multi-hour cluster run. Distortion in this boundary event is <=1 particle.
-    if len(idx) > N:                                   # keep the N heaviest offspring
-        order = sorted(range(len(idx)), key=lambda k: new_w[k], reverse=True)[:N]
-        idx = [idx[k] for k in order]; new_w = [new_w[k] for k in order]
-    elif len(idx) < N:                                 # pad with the heaviest offspring
-        pad = N - len(idx)
-        k = max(range(len(idx)), key=lambda j: new_w[j])
-        idx = idx + [idx[k]] * pad; new_w = new_w + [new_w[k]] * pad
+    # chopthin() now guarantees exactly N offspring -- it repairs the rare integer-rounding
+    # boundary (N_U<0 -> N+/-1 offspring) internally, so no length fix-up is needed here.
     idx_t = torch.tensor(idx, dtype=torch.long, device=device)
     new_w_t = torch.tensor(new_w, dtype=torch.float32, device=device)
     return idx_t, new_w_t
@@ -734,6 +725,11 @@ def smc_power_sample_memopt(
     w = torch.exp(lw)
     chosen_idx = int(torch.multinomial(w, 1, generator=g_resample).item())
     chosen_sequence = seqs_out[chosen_idx]
+
+    # Final per-particle cumulative model log-prob (diagnostic only; does NOT affect sampling
+    # or selection). run_baseline reads this to compute smc_lift = log_w_final - cum_logp_final
+    # (how much weight SMC added beyond raw model likelihood).
+    stats["cum_logp_final"] = cum_logp.detach().to("cpu", torch.float32).tolist()
 
     return {
         "sequences": seqs_out,

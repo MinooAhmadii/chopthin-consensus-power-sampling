@@ -37,12 +37,14 @@ pip install -r requirements.txt        # or: uv pip install -r requirements.txt
 ```bash
 # chopthin (this variant)
 python3 run_baseline.py --dataset aime --model qwen --n_particles 32 \
-  --max_new_tokens 4096 --alpha 2 --temperature 0.5 --trigger ess \
+  --max_new_tokens 4096 --temperature 0.5 --seed 42 --trigger ess \
   --resampler chopthin --eta 5.8284271247461903 \
   --problem_idx_list "$(seq -s, 0 89)" --out_dir runs/aime_chopthin
 
 # baseline (systematic): identical command, just  --resampler systematic   (eta ignored)
 ```
+- **α is set by `--temperature` (α = 1/temperature):** `--temperature 0.5` ⇒ α = 2. There is no `--alpha` flag.
+- `--seed` is **required**.
 - `--eta 5.8284271247461903` = `3+√8`, the canonical value giving an ESS floor of `N/2`.
 - Datasets: `math`, `aime`, `gsm8k`, `humaneval`, `gpqa` (provided in `data/`).
 - `fill_single_rest.slurm` is an example multi-model SLURM launcher showing the full invocation.

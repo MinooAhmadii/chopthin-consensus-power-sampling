@@ -199,9 +199,24 @@ def chopthin(weights: Sequence[float], eta: float, N: int,
             idx.append(i)
             new_w.append(share)
 
-    # Insurance: chopthin must return EXACTLY N. If _solve_a's guards exhaust or an
-    # offspring-count allocation goes wrong on pathological input, fail here at the source
-    # rather than as a confusing shape error deep in the torch wrapper.
+    # Guarantee EXACTLY N offspring (property ii). At a rare integer-rounding boundary the
+    # steps above can yield N+/-1 (e.g. N_L rounds up while the heavy fractional mass is ~0,
+    # so N_U < 0, the chop step allocates 0 extra, and len = N_L + sum_floor > N). Repair in
+    # place by trimming the lightest / padding the heaviest offspring; the distortion is
+    # bounded by a single particle. This is done HERE, at the source, so the contract holds
+    # for EVERY caller -- the previous bare `assert` raised before any caller could repair it,
+    # making the torch wrapper's fix-up unreachable dead code (and crashing real runs unless
+    # asserts are stripped with -O).
+    if len(idx) > N:
+        keep = sorted(range(len(idx)), key=lambda k: new_w[k], reverse=True)[:N]
+        idx = [idx[k] for k in keep]
+        new_w = [new_w[k] for k in keep]
+    elif 0 < len(idx) < N:
+        heaviest = max(range(len(idx)), key=lambda j: new_w[j])
+        pad = N - len(idx)
+        idx = idx + [idx[heaviest]] * pad
+        new_w = new_w + [new_w[heaviest]] * pad
+
     assert len(idx) == N, f"chopthin produced {len(idx)} particles, expected N={N}"
     return idx, new_w
 
@@ -232,7 +247,19 @@ def eta_for_ess_floor(gamma: float) -> float:
         eta = (2 - gamma + 2*sqrt(1 - gamma)) / gamma.
     e.g. gamma=0.5 -> eta = 3 + sqrt(8) ~= 5.828. (Finite-n floor is slightly lower; use
     ess_floor_from_eta for the exact value at a given n.)
+
+    Note: eta decreases as gamma rises and crosses the continuous-chopthin validity floor
+    (eta >= 4) at gamma ~= 0.686. Requesting a higher ESS-floor fraction than that has no
+    valid continuous-h eta, so we raise here rather than return an eta that chopthin() will
+    later reject with a less obvious error.
     """
     if not (0.0 < gamma < 1.0):
         raise ValueError("gamma must be in (0, 1).")
-    return (2.0 - gamma + 2.0 * math.sqrt(1.0 - gamma)) / gamma
+    eta = (2.0 - gamma + 2.0 * math.sqrt(1.0 - gamma)) / gamma
+    if eta < 4.0:
+        raise ValueError(
+            f"gamma={gamma} implies eta={eta:.4f} < 4, below the continuous-chopthin "
+            f"validity floor (eta >= 4). Max achievable ESS-floor fraction is gamma ~= 0.686 "
+            f"(eta = 4)."
+        )
+    return eta
