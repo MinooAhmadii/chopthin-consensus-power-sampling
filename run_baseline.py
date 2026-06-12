@@ -652,9 +652,7 @@ def main():
             "mean_logw_history": list(stats.get("mean_logw_history", [])),
             "max_logw_history": list(stats.get("max_logw_history", [])),
             "unique_ancestors_history": list(stats.get("unique_ancestors_history", [])),
-            "cum_xentropy_final": list(stats.get("cum_xentropy_final", [])),
             "cum_logp_final": list(stats.get("cum_logp_final", [])),
-            "reached_alpha_final": bool(stats.get("reached_alpha_final", False)),
             # Provenance
             "smc_config": {
                 "max_new_tokens": cfg.max_new_tokens,
