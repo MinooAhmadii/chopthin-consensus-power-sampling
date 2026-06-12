@@ -12,6 +12,21 @@ A variant of **Power-SMC** (Azizi et al., *Power-SMC: Low-Latency Sequence-Level
 
 That's it: **one new file + one resampler swap.** Everything else is the baseline.
 
+## How to run it (you do **not** run `chopthin.py` directly)
+`chopthin.py` is a **library, not an entry point.** The only thing you execute is **`run_baseline.py`**, and `chopthin.py` is reached *only* when you pass `--resampler chopthin`:
+
+```
+run_baseline.py                       ← the script you run
+  └─ smc_samp_utils.py                 ← SMC kernel  (from chopthin import chopthin)
+       └─ on each resampling step, if --resampler chopthin:
+            _chopthin_resample()  →  chopthin()     ← code in chopthin.py
+```
+
+- **`--resampler systematic`** → the baseline path (built-in `systematic_resample`); `chopthin.py` is imported but **never called**.
+- **`--resampler chopthin`** → activates `chopthin.py`.
+
+The baseline and chopthin runs are **the same command**, differing only in that one flag (see below).
+
 ## Setup
 ```bash
 pip install -r requirements.txt        # or: uv pip install -r requirements.txt
