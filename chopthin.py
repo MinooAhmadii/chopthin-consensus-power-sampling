@@ -58,6 +58,9 @@ def _solve_a(weights: Sequence[float], eta: float, N: int,
              tol: float = 1e-12, max_iter: int = 300) -> float:
     """Solve sum_i h_a^eta(w_i) = N for a > 0 by bisection.
 
+    (Bisection rather than the paper's O(n log n) Algorithm 2 is deliberate: at N~32 the
+    root-solve is negligible next to an LLM forward pass, and bisection is simpler & robust.)
+
     f(a) := sum_i h_a^eta(w_i) is continuous and non-increasing in a, with
     f -> +inf as a -> 0+ and f -> 0 as a -> +inf, so a unique solution exists.
     We return the lower bracket a_lo (where f(a_lo) >= N), which keeps boundary
@@ -196,6 +199,10 @@ def chopthin(weights: Sequence[float], eta: float, N: int,
             idx.append(i)
             new_w.append(share)
 
+    # Insurance: chopthin must return EXACTLY N. If _solve_a's guards exhaust or an
+    # offspring-count allocation goes wrong on pathological input, fail here at the source
+    # rather than as a confusing shape error deep in the torch wrapper.
+    assert len(idx) == N, f"chopthin produced {len(idx)} particles, expected N={N}"
     return idx, new_w
 
 
@@ -212,10 +219,12 @@ def ess(weights: Sequence[float]) -> float:
 
 
 def ess_floor_from_eta(eta: float, n: int) -> float:
-    """Exact Lemma-2 lower bound on ESS of an n-vector with weight ratio <= eta:
-        ESS >= 4 (eta*n + 1 - eta^2) / (eta + 1)^2 .
+    """Lemma-2 lower bound on ESS of an n-vector with weight ratio <= eta:
+        ESS >= (4*eta*n + 1 - eta^2) / (eta + 1)^2 .
+    The 4 multiplies only the eta*n term, NOT the whole numerator. Check against the
+    paper's worked example: eta=10, n=32 -> (4*10*32 + 1 - 100)/11^2 = 1181/121 = 9.760.
     """
-    return 4.0 * (eta * n + 1.0 - eta * eta) / ((eta + 1.0) ** 2)
+    return (4.0 * eta * n + 1.0 - eta * eta) / ((eta + 1.0) ** 2)
 
 
 def eta_for_ess_floor(gamma: float) -> float:
