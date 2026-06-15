@@ -249,7 +249,7 @@ def eta_for_ess_floor(gamma: float) -> float:
     ess_floor_from_eta for the exact value at a given n.)
 
     Note: eta decreases as gamma rises and crosses the continuous-chopthin validity floor
-    (eta >= 4) at gamma ~= 0.686. Requesting a higher ESS-floor fraction than that has no
+    (eta >= 4) at gamma = 16/25 = 0.64. Requesting a higher ESS-floor fraction than that has no
     valid continuous-h eta, so we raise here rather than return an eta that chopthin() will
     later reject with a less obvious error.
     """
@@ -259,7 +259,7 @@ def eta_for_ess_floor(gamma: float) -> float:
     if eta < 4.0:
         raise ValueError(
             f"gamma={gamma} implies eta={eta:.4f} < 4, below the continuous-chopthin "
-            f"validity floor (eta >= 4). Max achievable ESS-floor fraction is gamma ~= 0.686 "
+            f"validity floor (eta >= 4). Max achievable ESS-floor fraction is gamma = 16/25 = 0.64 "
             f"(eta = 4)."
         )
     return eta
