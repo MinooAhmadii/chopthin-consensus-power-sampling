@@ -70,14 +70,41 @@ Each `--out_dir` gets:
 
 Compute **oracle / pass@N** — a problem counts correct if ≥1 of the `N` particles is correct, the key diversity metric — with **`oracle_all.py`** (edit the folder/dataset list at the bottom, then `python3 oracle_all.py`).
 
+## Test-free HumanEval selection (behavior-majority)
+For code, a majority over answer *strings* is undefined, so we vote over program **behavior** instead — the code analogue of the semantic-majority selector used on the math/QA benchmarks. It uses **no ground-truth tests**, so it engages on all 164 HumanEval problems and is deployable on unseen problems.
+
+Two steps, run from the repo root:
+```bash
+# 1) each base model synthesizes its own test INPUTS (inputs only, no gold outputs)
+python3 he_gen_inputs.py qwen_math      # -> stage1_inputs_qwen_math.json
+python3 he_gen_inputs.py qwen
+python3 he_gen_inputs.py qwen3
+
+# 2) run the 32 candidates on those inputs, cluster by identical behavior, majority-vote
+python3 he_behavior_select.py --runs-dir runs
+```
+`he_behavior_select.py` prints, per (model, arm): the `smc` floor, the **behavior-majority** accuracy, and the `oracle` ceiling, plus how many problems it engaged on. HumanEval's held-out unit tests are used **only to score** the selected program — the selector never sees them. `he_gen_inputs.slurm` runs both steps on SLURM.
+
+> Candidate programs are decoded from the saved `per_run/p*.json` particles (see Outputs above); the behavioral executor is the sandbox in `grader_utils/he_execute.py`.
+
+## Figures
+`figures/figure1_oracle_ceiling.py` regenerates **Figure 1** (oracle coverage, chopthin vs. systematic, all 15 model×benchmark cells). The oracle counts are embedded in the script; only matplotlib is required.
+```bash
+python3 figures/figure1_oracle_ceiling.py     # -> oracle_ceiling_wide.pdf / .png
+```
+
 ## Layout
 | Path | What |
 | ---- | ---- |
 | `chopthin.py` | the chopthin resampler (the contribution) |
 | `run_baseline.py` | entry point |
 | `smc_samp_utils.py`, `power_samp_utils.py`, `constants.py` | SMC engine |
-| `grader_utils/` | answer graders (math / code / GPQA) |
+| `grader_utils/` | answer graders (math / code / GPQA) + HumanEval sandbox (`he_execute.py`) |
 | `data/` | benchmark datasets (MATH500, AIME, GSM8K, HumanEval, GPQA) |
 | `oracle_all.py` | oracle / pass@N metric |
+| `he_gen_inputs.py` | test-free HumanEval, step 1: base model generates its own test inputs |
+| `he_behavior_select.py` | test-free HumanEval, step 2: behavior-majority code selector |
+| `he_gen_inputs.slurm` | SLURM launcher for both HumanEval steps |
+| `figures/figure1_oracle_ceiling.py` | regenerates Figure 1 (oracle coverage, all 15 cells) |
 | `fill_single_rest.slurm` | example multi-model SLURM launcher |
 | `README_powersmc.md` | original Power-SMC readme (base method) |
