@@ -47,7 +47,6 @@ python3 run_baseline.py --dataset aime --model qwen --n_particles 32 \
 - `--seed` is **required**.
 - `--eta 5.8284271247461903` = `3+√8`, the canonical value giving an ESS floor of `N/2`.
 - Datasets: `math`, `aime`, `gsm8k`, `humaneval`, `gpqa` (provided in `data/`).
-- `fill_single_rest.slurm` is an example multi-model SLURM launcher showing the full invocation.
 
 ## Change the model
 Edit `model_map` in **`run_baseline.py`** and add a line:
@@ -106,5 +105,4 @@ python3 figures/figure1_oracle_ceiling.py     # -> oracle_ceiling_wide.pdf / .pn
 | `he_behavior_select.py` | test-free HumanEval, step 2: behavior-majority code selector |
 | `he_gen_inputs.slurm` | SLURM launcher for both HumanEval steps |
 | `figures/figure1_oracle_ceiling.py` | regenerates Figure 1 (oracle coverage, all 15 cells) |
-| `fill_single_rest.slurm` | example multi-model SLURM launcher |
 | `README_powersmc.md` | original Power-SMC readme (base method) |
