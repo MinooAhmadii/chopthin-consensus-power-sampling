@@ -1,0 +1,8 @@
+group      cell        arm            smc  argmax   wmaj    maj  oracle  uniqTraj
+---------------------------------------------------------------------------------
+qwen3-4b   MATH  N=32  systematic    79.0    79.4   79.4   81.0    83.8      12.8
+qwen3-4b   MATH  N=32  chopthin      81.8    82.0   81.6   81.8    84.8      14.4
+qwen3-4b   GSM8K N=32  systematic    90.1    90.0   90.4   91.7    93.7      16.3
+qwen3-4b   GSM8K N=32  chopthin      89.8    89.9   90.1   92.1    93.9      18.9
+qwen3-4b   AIME  N=32  systematic    15.6    15.6   15.6   15.6    17.8       8.8
+qwen3-4b   AIME  N=32  chopthin      16.7    16.7   16.7   15.6    20.0       9.7
