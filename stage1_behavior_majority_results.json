@@ -1,0 +1,56 @@
+{
+ "Qwen2.5-Math-7B": {
+  "systematic": {
+   "n": 164,
+   "smc": 68,
+   "behav": 69,
+   "oracle": 81,
+   "has_in": 164,
+   "engaged": 154
+  },
+  "chopthin": {
+   "n": 164,
+   "smc": 71,
+   "behav": 79,
+   "oracle": 96,
+   "has_in": 164,
+   "engaged": 159
+  }
+ },
+ "Qwen2.5-7B": {
+  "systematic": {
+   "n": 164,
+   "smc": 70,
+   "behav": 76,
+   "oracle": 88,
+   "has_in": 162,
+   "engaged": 124
+  },
+  "chopthin": {
+   "n": 164,
+   "smc": 68,
+   "behav": 76,
+   "oracle": 90,
+   "has_in": 162,
+   "engaged": 125
+  }
+ },
+ "Qwen3-4B": {
+  "systematic": {
+   "n": 164,
+   "smc": 104,
+   "behav": 114,
+   "oracle": 119,
+   "has_in": 163,
+   "engaged": 144
+  },
+  "chopthin": {
+   "n": 164,
+   "smc": 97,
+   "behav": 109,
+   "oracle": 117,
+   "has_in": 163,
+   "engaged": 144
+  }
+ }
+}
