@@ -4,7 +4,7 @@
 Published at the COLM 2026 Workshop on Efficient Reasoning.
 
 <p align="center">
-  <img src="figures/ccps_fig1.png" alt="Systematic vs Chopthin resampling on the same six particles" width="900">
+  <img src="figures/ccps_fig1.svg" alt="Systematic vs Chopthin resampling on the same six particles" width="900">
 </p>
 
 *Six particles, two resampling events. Circle size = weight, color = founding ancestor, ✕ = deleted, R = surviving lineages. **Left:** standard (systematic) resampling resets every weight to 1/N, kills the low-weight ★ particle at the first event, and ends with 2 lineages and the wrong majority answer. **Right:** Chopthin keeps unequal weights within a bounded ratio, so ★ survives, 4 lineages remain, and the vote is correct.*
@@ -34,7 +34,7 @@ Final-answer accuracy (%). N = 32, α = 2, no fine-tuning.
 Chopthin raises **oracle coverage** (the fraction of problems where at least one of the 32 particles is correct) in 13 of 15 settings. The selector turns that coverage into accuracy.
 
 <p align="center">
-  <img src="figures/oracle_coverage.png" alt="Oracle coverage, Chopthin vs systematic, 15 model x benchmark cells" width="900">
+  <img src="figures/oracle_coverage.svg" alt="Oracle coverage, Chopthin vs systematic, 15 model x benchmark cells" width="900">
 </p>
 
 ## Install
