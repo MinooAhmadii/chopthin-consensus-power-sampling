@@ -102,7 +102,6 @@ python3 he_behavior_select.py --runs-dir runs    # step 2: cluster programs by b
 | `grader_utils/` | answer graders (math, GSM8K, GPQA) and the HumanEval sandbox |
 | `data/` | MATH500, GSM8K, AIME 2022–2024, GPQA Diamond, HumanEval |
 | `figures/` | figure script and images used in this README |
-| `README_powersmc.md` | the original Power-SMC readme (engine details, single-prompt API) |
 
 ## Citation
 
