@@ -1,16 +1,5 @@
-# results / outputs
 runs/
-slurm_screen/
-*.out
-
-# python
 __pycache__/
 *.pyc
 .venv/
-*.egg-info/
-
-# backups / os / editor
-*.bak*
 .DS_Store
-.idea/
-.vscode/
