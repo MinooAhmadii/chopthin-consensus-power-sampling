@@ -62,7 +62,8 @@ def main():
     ap = argparse.ArgumentParser(description="Generate self-contained HumanEval test inputs.")
     ap.add_argument("key", choices=list(MODELS), help="which base model to sample inputs from")
     ap.add_argument("--data", default="data/HumanEval.jsonl", help="path to HumanEval.jsonl")
-    ap.add_argument("--out", default=".", help="directory to write stage1_inputs_<key>.json")
+    ap.add_argument("--out", default="data/he_inputs",
+                    help="directory to write stage1_inputs_<key>.json")
     args = ap.parse_args()
 
     mpath = MODELS[args.key]

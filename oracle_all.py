@@ -5,9 +5,11 @@ gap = oracle - accuracy = problems solvable-but-not-selected (selector waste).""
 import json, os, glob, sys
 from transformers import AutoTokenizer
 from run_baseline import extract_answer_3tier, grade_answer_3tier
+from he_protocols import get_protocol
 
 # Root folder that holds the run directories (each with per_run/*.json). Override with
 #   CCPS_RUNS=/path/to/runs python3 oracle_all.py [math|gsm8k|he|all]
+# The tokenizer is global: set CCPS_TOKENIZER=Qwen/Qwen3-4B for Qwen3 runs.
 ROOT = os.environ.get("CCPS_RUNS", "runs")
 MODEL = os.environ.get("CCPS_TOKENIZER", "Qwen/Qwen2.5-Math-7B")
 tok = AutoTokenizer.from_pretrained(MODEL)
@@ -20,14 +22,17 @@ def load_he():
         r = json.loads(line)
         HE_PROBS[r["task_id"]] = r
 
-def grade_particle(text, gold, dataset, prob_meta):
+def grade_particle(text, gold, dataset, prob_meta, he_protocol=None):
     if dataset == "humaneval":
-        ext, _ = extract_answer_3tier(text, "humaneval", problem=prob_meta)
-        return grade_answer_3tier(ext, gold, "humaneval", problem=prob_meta)
+        # HumanEval runs must be decoded with the protocol they were generated under
+        # (run_baseline.py --he_pipeline); see he_protocols.py.
+        ext = he_protocol.extract(text, prob_meta)
+        return grade_answer_3tier(ext, gold, "humaneval", problem=he_protocol.grade_problem(prob_meta))
     ext, _ = extract_answer_3tier(text, dataset)
     return grade_answer_3tier(ext, gold, dataset)
 
-def analyze(arm_dir, dataset, limit=None):
+def analyze(arm_dir, dataset, limit=None, he_protocol="legacy"):
+    proto = get_protocol(he_protocol) if dataset == "humaneval" else None
     files = sorted(glob.glob(os.path.join(ROOT, arm_dir, "per_run", "*.json")))
     if limit: files = files[:limit]
     n=sel=oracle=0
@@ -47,7 +52,7 @@ def analyze(arm_dir, dataset, limit=None):
         any_ok=False
         for seq in seqs:
             text = tok.decode(seq[pl:], skip_special_tokens=True)
-            if grade_particle(text, gold, dataset, prob_meta):
+            if grade_particle(text, gold, dataset, prob_meta, proto):
                 any_ok=True
                 if dataset != "humaneval":   # for speed, stop early on non-code
                     break
@@ -58,8 +63,8 @@ def analyze(arm_dir, dataset, limit=None):
         if any_ok: oracle_set.add(d["problem_idx"])
     return dict(n=n, sel=sel, oracle=oracle, sel_set=sel_set, oracle_set=oracle_set)
 
-def report(label, bd, cd, dataset, limit=None):
-    b=analyze(bd,dataset,limit); c=analyze(cd,dataset,limit)
+def report(label, bd, cd, dataset, limit=None, he_protocol="legacy"):
+    b=analyze(bd,dataset,limit,he_protocol); c=analyze(cd,dataset,limit,he_protocol)
     ba=100*b['sel']/b['n']; bo=100*b['oracle']/b['n']
     ca=100*c['sel']/c['n']; co=100*c['oracle']/c['n']
     # chop oracle gain over base; coverage exclusive
@@ -83,6 +88,8 @@ if __name__=="__main__":
     if which in ("gsm8k","all"):
         report("GSM8K N=32 a2","gsm8k_full_n32_s42/a2_A","gsm8k_full_n32_s42/a2_C","gsm8k")
     if which in ("he","all"):
-        report("HEval N=8 a2","humaneval_n8_s42/a2_A","humaneval_n8_s42/a2_C","humaneval")
-        report("HEval N=16 a2","humaneval_n16_s42/a2_A","humaneval_n16_s42/a2_C","humaneval")
-        report("HEval N=32 a2","humaneval_n32_s42/a2_A","humaneval_n32_s42/a2_C","humaneval")
+        # Paper Table 1 HumanEval runs: stub for Math-7B and Qwen3-4B, cot for Qwen2.5-7B.
+        # (Qwen3-4B needs CCPS_TOKENIZER=Qwen/Qwen3-4B.)
+        report("HEval Math-7B stub","humaneval_stub_qwen_math_n32_s42/a2_A","humaneval_stub_qwen_math_n32_s42/a2_C","humaneval",he_protocol="stub")
+        report("HEval Qwen2.5-7B cot","humaneval_cot_qwen2.5-7b_n32_s42/a2_A","humaneval_cot_qwen2.5-7b_n32_s42/a2_C","humaneval",he_protocol="cot")
+        report("HEval Qwen3-4B stub","humaneval_stub_qwen3-4b_n32_s42/a2_A","humaneval_stub_qwen3-4b_n32_s42/a2_C","humaneval",he_protocol="stub")

@@ -21,6 +21,7 @@ import os
 import random
 import re as _re_b
 import subprocess as _sp
+import textwrap as _textwrap
 import time
 
 import numpy as np
@@ -132,13 +133,106 @@ def grade_answer_3tier(extracted, gold, dataset, problem=None):
     if dataset == "humaneval":
         if problem is None:
             return False
+        # NOTE: the caller controls the completion contract via problem["prompt"].
+        #   legacy -> problem["prompt"] is the real signature; `extracted` is a BODY.
+        #   cot    -> caller passes problem["prompt"] == ""; `extracted` is a STANDALONE program.
+        # The sandbox always builds problem["prompt"] + extracted + test + check(entry_point).
+        # An ImportError here means the wrong conda env (he_check needs numpy/tqdm); that must
+        # be fatal, because the old bare `except: return False` silently scored EVERY problem
+        # wrong with no error output.
+        from grader_utils.he_check import check_correctness
         try:
-            from grader_utils.he_check import check_correctness
             result = check_correctness(problem, extracted, timeout=3.0)
-            return bool(result.get("passed", False))
-        except Exception:
+        except Exception as e:  # per-problem failure: report, don't kill the shard
+            print(f"[grade] check_correctness failed: {type(e).__name__}: {e}", flush=True)
             return False
+        return bool(result.get("passed", False))
     raise ValueError(f"Unknown dataset for grader: {dataset!r}")
+
+
+# ---------------------------------------------------------------------------
+# HumanEval "cot" pipeline (--he_pipeline cot).
+# Prompt + extraction ported from the standalone eval script. Unlike the legacy
+# path, extraction returns a STANDALONE program (signature included), so the
+# grader must be called with problem["prompt"] == "" to avoid duplicating the
+# signature. See grade_answer_3tier's humaneval branch.
+# ---------------------------------------------------------------------------
+HE_COT_SYSTEM = (
+    "You are an expert Python programmer. "
+    "You will be given a function signature and docstring. "
+    "Think step by step about the problem, then provide your solution.\n\n"
+    "IMPORTANT: After your reasoning, write your final implementation "
+    "inside a single markdown code block like:\n"
+    "```python\n<your code>\n```\n\n"
+    "Your code block must contain the COMPLETE function definition "
+    "Do NOT include any test cases, example calls, or print statements "
+    "outside the function body. VERY IMPORTANT: YOU MUST STOP IMMEDIATELY AFTER "
+    "GENERATING THE CODE BLOCK. NO FURTHER EXPLANATION OR VERIFICATION IS NEEDED."
+)
+
+
+def he_cot_build_prompt(humaneval_prompt: str) -> str:
+    return (
+        f"{HE_COT_SYSTEM}\n\n"
+        f"## Problem\n\n"
+        f"Complete the following Python function:\n\n"
+        f"```python\n{humaneval_prompt}```\n"
+    )
+
+
+# Canonical HumanEval stop-word list. Same set used by Zhou et al. (Entropy-Cut MH),
+# which is the only competitor paper that documents its HumanEval protocol:
+#   "For HumanEval, we directly provide the model with the code stub and enforce the
+#    following stop words."
+# Base models continue a code stub with code; appending an English instruction makes them
+# echo the instruction instead (the legacy pipeline's failure mode). So `stub` sends the
+# raw prompt with NO added text, and truncates the completion at the first stop word.
+HE_STOP_WORDS = ["\nclass", "\ndef", "\n#", "\nif", "\nprint", "\nassert",
+                 "\nimport", "\nfrom", "\n```", "if __name__"]
+
+
+def he_stub_truncate(completion: str) -> str:
+    """Cut the continuation at the earliest stop word (the standard HumanEval rule)."""
+    cut = len(completion)
+    for sw in HE_STOP_WORDS:
+        i = completion.find(sw)
+        if 0 <= i < cut:
+            cut = i
+    return completion[:cut]
+
+
+def _he_func_name(prompt: str):
+    m = _re_b.search(r"def\s+(\w+)\s*\(", prompt)
+    return m.group(1) if m else None
+
+
+def _he_as_body(raw: str) -> str:
+    """Normalize a body-only snippet to exactly one 4-space indent level.
+
+    The naive `.strip()` used by the standalone script destroys the leading
+    indentation, so `signature + body` becomes syntactically invalid. Dedent to
+    column 0, then re-indent uniformly.
+    """
+    return _textwrap.indent(_textwrap.dedent(raw).strip("\n"), "    ")
+
+
+def he_cot_extract_code(response: str, original_prompt: str):
+    """Return (standalone_program, extraction_path). Never returns None."""
+    blocks = _re_b.findall(r"```(?:python)?\s*\n(.*?)```", response, _re_b.DOTALL)
+    func_name = _he_func_name(original_prompt)
+    if blocks:
+        raw = blocks[-1].rstrip()          # LAST block: reasoning models show drafts first
+        if func_name and f"def {func_name}" in raw:
+            return raw.strip() + "\n", "cot_block_full"
+        # block held only a body -> re-indent and prepend the signature
+        return original_prompt + _he_as_body(raw) + "\n", "cot_block_body"
+    if func_name:
+        m = _re_b.search(
+            rf"(def {_re_b.escape(func_name)}\(.*?(?:\n(?=def |\nclass |\Z)|$))",
+            response, _re_b.DOTALL)
+        if m:
+            return m.group(1).rstrip() + "\n", "cot_def_regex"
+    return original_prompt + _he_as_body(response) + "\n", "cot_fallback"
 
 
 def classify_outcome(extracted, gold, dataset, response_length_tokens, max_new_tokens, problem=None):
@@ -300,6 +394,7 @@ def main():
     p.add_argument("--max_new_tokens", type=int, default=4096,
                    help="v3-parity: default 4096 (was 3072). v3 asserts >= 4096.")
     p.add_argument("--temperature", type=float, default=0.25)
+    p.add_argument("--top_p", type=float, default=0.9)
     p.add_argument("--ess_threshold", type=float, default=0.5)
     p.add_argument("--block_size", type=int, default=64)
     p.add_argument("--stop_on_boxed", action="store_true", default=True)
@@ -311,6 +406,17 @@ def main():
                    help="Override alpha_ramp_tokens. None = use SMCSamplingConfig default (400). "
                         "Set to 200 to match island v3/v4.")
     # ---- Resampling-scheme experiment flags (P3) ----
+    p.add_argument("--he_pipeline", type=str, default="legacy",
+                   choices=["legacy", "cot", "stub"],
+                   help="HumanEval prompt/extraction pipeline. 'legacy' = the original "
+                        "code-completion ask + 3-tier extractor (body-only, graded with the "
+                        "problem prompt prepended). 'cot' = chain-of-thought instruction + "
+                        "last ```python block (standalone program, graded with prompt=''). "
+                        "'stub' = the raw code stub with nothing appended; the completion is "
+                        "cut at the first canonical stop word and graded as a function body. "
+                        "Paper: cot for Qwen2.5-7B, stub for Qwen2.5-Math-7B and Qwen3-4B.")
+    p.add_argument("--resume", action="store_true",
+                   help="Skip problems whose per_run/p{idx:03d}_s{seed}.json already exists.")
     p.add_argument("--resampler", type=str, default="systematic",
                    choices=["systematic", "chopthin", "chopthin_reset"],
                    help="Resampling scheme. 'chopthin' keeps unequal weights (Arm C); "
@@ -490,6 +596,7 @@ def main():
         n_particles=args.n_particles,
         ess_threshold=args.ess_threshold,
         temperature=args.temperature,
+        top_p=args.top_p,
         block_size=args.block_size,
         stop_on_boxed=args.stop_on_boxed,
         boxed_check_window_tokens=args.boxed_check_window_tokens,
@@ -508,7 +615,17 @@ def main():
     summaries = []
     # v3 P-C parity: open per_question.jsonl, line-buffered
     jsonl_path = os.path.join(args.out_dir, "per_question.jsonl")
-    jsonl_fp = open(jsonl_path, "w", buffering=1)
+    # --resume appends so a restarted shard keeps the lines it already wrote; the default
+    # stays "w" (truncate) to preserve the original behaviour exactly.
+    jsonl_fp = open(jsonl_path, "a" if args.resume else "w", buffering=1)
+
+    if args.resume:
+        _done = [i for i in problem_idx_list
+                 if os.path.exists(os.path.join(args.out_dir, "per_run",
+                                                f"p{i:03d}_s{args.seed}.json"))]
+        if _done:
+            print(f"[resume] skipping {len(_done)} already-complete problems", flush=True)
+        problem_idx_list = [i for i in problem_idx_list if i not in set(_done)]
 
     for idx_pos, prob_idx in enumerate(problem_idx_list):
         # Per-problem seed = base + offset so seeds are deterministic per (seed, prob_idx)
@@ -549,11 +666,17 @@ def main():
                   "answer inside \\boxed{}. Example: \\boxed{B}"
             )
         elif args.dataset == "humaneval":
-            # HumanEval: the prompt IS the function signature + docstring. Append a code-completion ask.
-            input_text = (
-                question
-                + "\n\n# Complete the function above. Output ONLY the function body in a python code block (```python ... ```)."
-            )
+            if args.he_pipeline == "stub":
+                # canonical protocol: the raw code stub, nothing appended
+                input_text = question
+            elif args.he_pipeline == "cot":
+                input_text = he_cot_build_prompt(question)
+            else:
+                # legacy: the prompt IS the signature + docstring; append a code-completion ask.
+                input_text = (
+                    question
+                    + "\n\n# Complete the function above. Output ONLY the function body in a python code block (```python ... ```)."
+                )
         else:
             # math, aime, gsm8k all use Armin's math-style prompt
             input_text = format_prompt(question, args.model, tokenizer, cot=True)
@@ -578,10 +701,24 @@ def main():
         completion = tokenizer.decode(chosen_ids, skip_special_tokens=True)
 
         # v3 P-B parity: 3-tier extractor + per-dataset grader (problem dict passed for humaneval)
-        extracted, extraction_path = extract_answer_3tier(completion, args.dataset, problem=data)
+        if args.dataset == "humaneval" and args.he_pipeline == "stub":
+            # canonical: completion IS the function body; cut at the first stop word and
+            # let the sandbox prepend the real signature (problem["prompt"] unchanged).
+            extracted = he_stub_truncate(completion)
+            extraction_path = "stub_stopword"
+            grade_problem = data
+        elif args.dataset == "humaneval" and args.he_pipeline == "cot":
+            # cot returns a STANDALONE program -> grade with prompt="" so the sandbox does not
+            # prepend the signature a second time (that would redefine/duplicate it).
+            extracted, extraction_path = he_cot_extract_code(completion, question)
+            grade_problem = {**data, "prompt": ""}
+        else:
+            extracted, extraction_path = extract_answer_3tier(completion, args.dataset, problem=data)
+            grade_problem = data
         response_length_tokens = int(len(chosen_ids))
         outcome, hit_token_cap = classify_outcome(
-            extracted, gold, args.dataset, response_length_tokens, args.max_new_tokens, problem=data,
+            extracted, gold, args.dataset, response_length_tokens, args.max_new_tokens,
+            problem=grade_problem,
         )
         correct = (outcome == "correct")
         # Backward-compat: parsed = extracted if 3-tier matched, else Armin's fallback
@@ -652,7 +789,9 @@ def main():
             "mean_logw_history": list(stats.get("mean_logw_history", [])),
             "max_logw_history": list(stats.get("max_logw_history", [])),
             "unique_ancestors_history": list(stats.get("unique_ancestors_history", [])),
+            "cum_xentropy_final": list(stats.get("cum_xentropy_final", [])),
             "cum_logp_final": list(stats.get("cum_logp_final", [])),
+            "reached_alpha_final": bool(stats.get("reached_alpha_final", False)),
             # Provenance
             "smc_config": {
                 "max_new_tokens": cfg.max_new_tokens,
