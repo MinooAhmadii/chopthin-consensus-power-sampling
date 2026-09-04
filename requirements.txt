@@ -1,24 +1,6 @@
-# Python dependencies for Power-SMC baseline runner.
-# Tested on Python 3.10 (kaveh cluster used 3.10 in conda env minoo_env).
-# pyproject.toml on the source only contained ruff config (no runtime deps),
-# so this list was reconstructed from the actual imports across all modules.
-
-# --- Core ML ---
-# Target runtime is kaveh (CUDA / A6000). Match these on kaveh, not the Mac.
-torch>=2.1            # kaveh used 2.5.1 (CUDA build)
-transformers>=4.44    # kaveh used 4.45.0 (Qwen2.5-Math-7B requires >=4.37)
+torch>=2.1
+transformers>=4.44
 numpy
-
-# --- Data loading ---
-pandas
-datasets              # HuggingFace datasets (used by power_samp_utils.format_prompt)
-tqdm
-
-# --- Math grading (grader_utils/math_grader.py) ---
 sympy
-pylatexenc            # LaTeX → text for answer normalization
-
-# --- Notes ---
-# The model "Qwen/Qwen2.5-Math-7B" is NOT bundled here. It is downloaded from
-# HuggingFace Hub on first run (~15 GB in bf16). Set HF_HOME to control cache
-# location. No HF token needed (public model).
+pylatexenc
+matplotlib   # only for figures/oracle_coverage.py

@@ -7,10 +7,8 @@ equally-weighted particles. It bounds the ratio between the largest and smallest
 "thinned" (probabilistically kept/killed). It is unbiased, conserves total weight, returns
 exactly N particles, and (Lemma 2) implicitly lower-bounds the effective sample size.
 
-This module is PURE PYTHON (no torch / numpy) so it can be unit-tested anywhere, including a
-Mac dev box with no GPU. The torch-facing wrapper that plugs into the Power-SMC core lives in
-`smc_samp_utils.py` and simply calls `chopthin(...)` on the CPU weight vector (N is tiny, so
-this is free relative to a model forward pass).
+This module is pure Python (no torch / numpy). The torch wrapper that plugs it into the SMC
+loop is `chopthin_resample` in `smc.py`; it calls `chopthin(...)` on the CPU weight vector.
 
 Public API:
     chopthin(weights, eta, N, rng=None) -> (ancestor_idx, new_weights)

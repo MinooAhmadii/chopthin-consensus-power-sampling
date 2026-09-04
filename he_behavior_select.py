@@ -1,54 +1,30 @@
 #!/usr/bin/env python3
+"""HumanEval selection without ground-truth tests, step 2 of 2: behavior-majority voting.
+
+For each problem it decodes the N candidate programs saved by run.py, merges identical
+programs, runs each distinct program on the model-written inputs from he_gen_inputs.py in
+the sandbox, groups programs by identical output behavior, and returns the largest group
+(ties broken by pooled particle weight). The held-out HumanEval tests are used only to score
+the result, never by the selector. Problems with no usable inputs fall back to the run's
+weight-drawn particle.
+
+    python he_behavior_select.py --run runs/humaneval/chopthin --inputs he_inputs_qwen_math.json
+
+Prints, per run: weight-draw accuracy (as run), behavior-majority accuracy, oracle coverage.
 """
-Test-free HumanEval selection, step 2 of 2: behavior-majority voting.
-
-This is the CODE analogue of semantic-majority selection. For each problem it:
-  1. decodes the N candidate programs (from the saved per_run/p*.json particles) and
-     deduplicates identical ones into distinct programs;
-  2. runs every distinct program on the self-generated inputs from he_gen_inputs.py
-     (stage1_inputs_<key>.json) inside the sandboxed executor (grader_utils/he_execute);
-  3. clusters programs by identical output behavior and returns the majority cluster
-     (ties broken by pooled particle weight);
-  4. scores that representative on HumanEval's held-out tests -- used ONLY to measure
-     accuracy, never by the selector.
-
-No ground-truth tests enter selection, so it engages on all 164 problems and is fully
-deployable on unseen problems. For each (model, arm) it prints:
-    smc floor | BEHAVIOR-MAJORITY | oracle ceiling,  plus engagement counts.
-
-Run from the repo root (so `run_baseline` and `grader_utils` import cleanly):
-    python3 he_behavior_select.py --runs-dir runs --inputs-dir .
-"""
-import os
-import json
-import glob
-import math
 import argparse
+import glob
+import json
+import math
 import multiprocessing
+import os
 from collections import defaultdict
 
 from transformers import AutoTokenizer
-from run_baseline import extract_answer_3tier
-from grader_utils.he_execute import (check_correctness, reliability_guard, swallow_io,
-                                      time_limit, create_tempdir)
 
-# (display name, tokenizer, run-folder under --runs-dir, inputs key from he_gen_inputs.py).
-# Adjust the run-folder names to your own runs/<folder>/{a2_A,a2_C}/per_run/*.json layout.
-# (Qwen2.5-7B shares a byte-identical tokenizer with Qwen2.5-Math-7B, hence the reuse.)
-CONFIGS = [
-    ("Qwen2.5-Math-7B", "Qwen/Qwen2.5-Math-7B-Instruct", "humaneval_n32_s42",           "qwen_math"),
-    ("Qwen2.5-7B",      "Qwen/Qwen2.5-Math-7B-Instruct", "humaneval_qwen2.5-7b_n32_s42", "qwen"),
-    ("Qwen3-4B",        "Qwen/Qwen3-4B",                 "humaneval_qwen3-4b_n32_s42",   "qwen3"),
-]
-ARMS = [("a2_A", "systematic"), ("a2_C", "chopthin")]
-
-_TOKS = {}
-
-
-def get_tok(name):
-    if name not in _TOKS:
-        _TOKS[name] = AutoTokenizer.from_pretrained(name)
-    return _TOKS[name]
+from grader_utils.answers import extract_answer
+from grader_utils.he_execute import (check_correctness, create_tempdir, reliability_guard,
+                                     swallow_io, time_limit)
 
 
 def softmax(xs):
@@ -59,7 +35,7 @@ def softmax(xs):
 
 
 def _behavior_worker(prompt, completion, exprs, result):
-    """Run `completion` on each input expr in a fresh sandbox; append the tuple of repr'd outputs."""
+    """Run `completion` on each input expression in a fresh sandbox; append its outputs."""
     with create_tempdir():
         import os
         import shutil
@@ -83,7 +59,7 @@ _MGR = None
 
 
 def behavior(prob, completion, exprs):
-    """Behavior signature = tuple of `completion`'s outputs on `exprs`, or None if it won't run."""
+    """Behavior signature = tuple of the program's outputs on `exprs`, or None if it won't run."""
     global _MGR
     if completion is None or not exprs:
         return None
@@ -103,7 +79,7 @@ def behavior(prob, completion, exprs):
 
 
 def passes_hidden(prob, completion):
-    """Held-out HumanEval unit tests -- used ONLY to score accuracy, never by the selector."""
+    """Held-out HumanEval tests, used only to score accuracy."""
     if completion is None:
         return False
     try:
@@ -112,94 +88,82 @@ def passes_hidden(prob, completion):
         return False
 
 
-def analyze(model, tokname, run, key, runs_dir, inputs_dir, he):
-    tok = get_tok(tokname)
-    inputs = json.load(open(os.path.join(inputs_dir, f"stage1_inputs_{key}.json")))
-    res = {}
-    for arm, label in ARMS:
-        st = dict(n=0, smc=0, behav=0, oracle=0, has_in=0, engaged=0)
-        for f in sorted(glob.glob(f"{runs_dir}/{run}/{arm}/per_run/*.json")):
-            d = json.load(open(f))
-            st["n"] += 1
-            seqs = d["all_particle_token_ids"]
-            ci = d["chosen_idx"]
-            w = softmax(d.get("log_w_final", [0.0] * len(seqs)))
-            rlen = d.get("response_length_tokens", 0)
-            pl = max(0, len(seqs[ci]) - rlen)                    # prompt-length offset
-            pid = d.get("problem_id") or d.get("metadata", {}).get("task_id")
-            prob = he.get(pid)
-            codes = [extract_answer_3tier(tok.decode(s[pl:], skip_special_tokens=True),
-                                          "humaneval", problem=prob)[0] for s in seqs]
-            distinct = defaultdict(list)                          # program string -> particle indices
-            for i, c in enumerate(codes):
-                distinct[c].append(i)
+def analyze(run_dir, inputs, problems):
+    with open(os.path.join(run_dir, "config.json")) as f:
+        tok = AutoTokenizer.from_pretrained(json.load(f)["model"])
+    st = dict(n=0, weight_draw=0, behavior_majority=0, oracle=0, engaged=0)
+    for path in sorted(glob.glob(os.path.join(run_dir, "per_run", "*.json"))):
+        with open(path) as f:
+            d = json.load(f)
+        st["n"] += 1
+        seqs, ci = d["all_particle_token_ids"], d["chosen_idx"]
+        w = softmax(d.get("log_w_final", [0.0] * len(seqs)))
+        prompt_len = max(0, len(seqs[ci]) - d.get("response_length_tokens", 0))
+        prob = problems.get(d["problem_id"])
+        codes = [extract_answer(tok.decode(s[prompt_len:], skip_special_tokens=True),
+                                "humaneval", problem=prob)[0] for s in seqs]
+        distinct = defaultdict(list)                          # program text -> particle indices
+        for i, c in enumerate(codes):
+            distinct[c].append(i)
 
-            if d["correct"]:                                     # native smc-selected outcome
-                st["smc"] += 1
+        if d["correct"]:                                      # the run's own weight draw
+            st["weight_draw"] += 1
 
-            hidc = {}
+        hidden = {}
 
-            def hid(c):                                          # memoized held-out-test score
+        def hid(c):                                           # memoized held-out-test result
+            if c is None:
+                return False
+            if c not in hidden:
+                hidden[c] = passes_hidden(prob, c)
+            return hidden[c]
+
+        if any(hid(c) for c in distinct if c is not None):
+            st["oracle"] += 1
+
+        exprs = inputs.get(d["problem_id"], [])
+        ok = d["correct"]                                     # fallback: the weight draw
+        if exprs:
+            clusters = defaultdict(list)                      # behavior signature -> programs
+            for c in distinct:
                 if c is None:
-                    return False
-                if c in hidc:
-                    return hidc[c]
-                r = passes_hidden(prob, c)
-                hidc[c] = r
-                return r
+                    continue
+                sg = behavior(prob, c, exprs)
+                if sg is not None:
+                    clusters[sg].append(c)
+            if clusters:
+                mass = lambda cs: sum(w[i] for c in cs for i in distinct[c])
+                best = max(clusters, key=lambda sg: (len(clusters[sg]), mass(clusters[sg])))
+                rep = max(clusters[best], key=lambda c: sum(w[i] for i in distinct[c]))
+                ok = hid(rep)
+                st["engaged"] += 1
+        if ok:
+            st["behavior_majority"] += 1
 
-            if any(hid(c) for c in distinct if c is not None):   # best-of-N ceiling
-                st["oracle"] += 1
-
-            exprs = inputs.get(pid, [])
-            if exprs:
-                st["has_in"] += 1
-            behav_ok = d["correct"]                              # fallback = smc draw if unusable
-            if exprs:
-                clusters = defaultdict(list)                     # behavior signature -> programs
-                for c in distinct:
-                    if c is None:
-                        continue
-                    sg = behavior(prob, c, exprs)
-                    if sg is not None:
-                        clusters[sg].append(c)
-                if clusters:
-                    mass = lambda cs: sum(w[i] for c in cs for i in distinct[c])
-                    best = max(clusters, key=lambda sg: (len(clusters[sg]), mass(clusters[sg])))
-                    rep = max(clusters[best], key=lambda c: sum(w[i] for i in distinct[c]))
-                    behav_ok = hid(rep)
-                    st["engaged"] += 1
-            if behav_ok:
-                st["behav"] += 1
-
-        res[label] = st
-        n = st["n"] or 1
-        print(f"[{model:16s} {label:10s}] n={st['n']}  smc={100 * st['smc'] / n:4.1f}  "
-              f"BEHAV-MAJ={100 * st['behav'] / n:4.1f}  oracle={100 * st['oracle'] / n:4.1f}   "
-              f"(has_inputs={st['has_in']}, engaged={st['engaged']})", flush=True)
-    return res
+    n = max(st["n"], 1)
+    print(f"{run_dir}: n={st['n']}  weight_draw={100 * st['weight_draw'] / n:.1f}%  "
+          f"behavior_majority={100 * st['behavior_majority'] / n:.1f}%  "
+          f"oracle={100 * st['oracle'] / n:.1f}%  (selector engaged on {st['engaged']})", flush=True)
+    return st
 
 
 def main():
-    ap = argparse.ArgumentParser(description="Test-free behavior-majority HumanEval selection.")
-    ap.add_argument("--runs-dir", default="runs",
-                    help="root of runs/<folder>/{a2_A,a2_C}/per_run/*.json")
-    ap.add_argument("--inputs-dir", default=".", help="dir holding stage1_inputs_<key>.json")
-    ap.add_argument("--data", default="data/HumanEval.jsonl", help="path to HumanEval.jsonl")
+    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("--run", nargs="+", required=True, help="run directories from run.py")
+    ap.add_argument("--inputs", required=True, help="he_inputs_<model>.json from he_gen_inputs.py")
+    ap.add_argument("--data", default="data/HumanEval.jsonl")
     ap.add_argument("--out", default="behavior_majority_results.json")
     args = ap.parse_args()
 
-    he = {}
-    for line in open(args.data):
-        r = json.loads(line)
-        he[r["task_id"]] = r
+    with open(args.inputs) as f:
+        inputs = json.load(f)
+    with open(args.data) as f:
+        problems = {r["task_id"]: r for r in (json.loads(l) for l in f if l.strip())}
 
-    print("Test-free behavior-majority selection (model-generated inputs, all 164)\n")
-    allres = {}
-    for model, tokname, run, key in CONFIGS:
-        allres[model] = analyze(model, tokname, run, key, args.runs_dir, args.inputs_dir, he)
-    json.dump(allres, open(args.out, "w"), indent=1)
-    print(f"\nsaved {args.out}")
+    results = {run_dir: analyze(run_dir, inputs, problems) for run_dir in args.run}
+    with open(args.out, "w") as f:
+        json.dump(results, f, indent=1)
+    print(f"saved {args.out}")
 
 
 if __name__ == "__main__":

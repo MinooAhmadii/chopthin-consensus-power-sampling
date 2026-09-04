@@ -1,13 +1,9 @@
 #!/usr/bin/env python3
-"""
-Oracle-coverage figure (paper Table 3 / Figure 2): oracle coverage (best-of-N), chopthin vs. systematic resampling,
-for all 15 model x benchmark cells. Three model panels side by side (dumbbell per cell:
-open marker = systematic, filled = chopthin; teal = higher, red = lower, gray = tie).
+"""Oracle-coverage figure (paper Figure 2 / Table 3): Chopthin vs systematic resampling for
+all 15 model x benchmark cells. Open marker = systematic, filled = Chopthin; teal = higher,
+red = lower, gray = tie. The counts below are the paper's numbers (from oracle_coverage.py).
 
-The oracle counts are embedded below; they match Table 3 of the paper
-(computed from the run outputs with oracle_all.py). Only matplotlib is required.
-
-    python3 figures/figure1_oracle_ceiling.py    ->  figures/oracle_coverage.pdf / .png
+    python3 figures/oracle_coverage.py    ->  figures/oracle_coverage.{svg,pdf,png}
 """
 import matplotlib
 matplotlib.use("Agg")
@@ -84,6 +80,7 @@ fig.legend(handles=handles, loc="upper center", ncol=2, frameon=False, fontsize=
 fig.tight_layout(rect=[0, 0.04, 1, 0.99])
 import os
 out = os.path.join(os.path.dirname(os.path.abspath(__file__)), "oracle_coverage")
+fig.savefig(out + ".svg", bbox_inches="tight")
 fig.savefig(out + ".pdf", bbox_inches="tight")
 fig.savefig(out + ".png", dpi=200, bbox_inches="tight")
-print("saved", out + ".pdf /", out + ".png")
+print("saved", out + ".svg / .pdf / .png")
