@@ -51,6 +51,7 @@ python3 run_baseline.py --dataset math --model qwen_math --n_particles 32 \
 - `--eta 5.8284271247461903` is 3+√8, the value whose ESS floor is about N/2.
 - `--seed` is required.
 - Datasets (`--dataset`): `math` (MATH500, 500), `gsm8k` (1319), `aime` (2022–2024, 90), `gpqa` (Diamond, 198), `humaneval` (164). All files are in `data/`.
+- HumanEval prompt protocol (`--he_pipeline`): `stub` feeds the raw code stub with nothing appended and cuts the completion at the first canonical stop word; `cot` adds a chain-of-thought instruction and takes the last ```python block as a standalone program. The paper uses `cot` for Qwen2.5-7B and `stub` for Qwen2.5-Math-7B and Qwen3-4B (under `cot` the math model reasons past the token budget before writing code). `legacy` is the earlier completion-ask prompt, kept for reference. `--resume` skips problems whose per-run file already exists, so sharded runs can be restarted.
 - Models (`--model`): `qwen_math` (Qwen2.5-Math-7B), `qwen` (Qwen2.5-7B), `qwen3` (Qwen3-4B), `phi` (Phi-3.5-mini). Add your own to `model_map` in `run_baseline.py`.
 
 Each run folder gets `per_question.jsonl` (selected answer and outcome per problem), `per_run/p*.json` (all N particles: token ids, weights, chosen index), and `config.json` (every resolved setting).
@@ -62,9 +63,11 @@ Each run folder gets `per_question.jsonl` (selected answer and outcome per probl
 CCPS_RUNS=runs python3 oracle_all.py all
 
 # HumanEval: behavior-majority selection, no ground-truth tests
-python3 he_gen_inputs.py qwen_math               # step 1: the base model writes test inputs
+python3 he_gen_inputs.py qwen_math               # step 1: the base model writes test inputs -> data/he_inputs/
 python3 he_behavior_select.py --runs-dir runs    # step 2: cluster programs by behavior, vote
 ```
+
+The test inputs used in the paper are already in `data/he_inputs/` (one file per base model, shared by both resampling arms and all selectors), so step 1 is optional. Step 2 prints, per model and arm, the weight-draw accuracy, the behavioral-majority accuracy and the oracle ceiling. Its default `CONFIGS` are the paper's run folders and protocols; for another run pass `--run <folder> --key <qwen_math|qwen|qwen3> --protocol <stub|cot|legacy>`, using the protocol the run was generated with. `python3 tests/test_he_cot_contract.py` checks the `cot` grading contract offline.
 
 The math/GPQA semantic-majority selector will be added to this repository.
 
@@ -80,8 +83,10 @@ The math/GPQA semantic-majority selector will be added to this repository.
 | `power_samp_utils.py`, `constants.py` | prompt templates and model utilities |
 | `oracle_all.py` | oracle coverage and selected accuracy per arm |
 | `he_gen_inputs.py`, `he_behavior_select.py`, `he_gen_inputs.slurm` | behavior-majority selector for code |
+| `he_protocols.py` | the three HumanEval prompt/extraction contracts (`legacy`, `cot`, `stub`) |
 | `grader_utils/` | answer graders (math, GSM8K, GPQA) and the HumanEval sandbox |
-| `data/` | MATH500, GSM8K, AIME 2022–2024, GPQA Diamond, HumanEval |
+| `data/` | MATH500, GSM8K, AIME 2022–2024, GPQA Diamond, HumanEval; `he_inputs/` holds the model-generated HumanEval test inputs |
+| `tests/` | offline check of the HumanEval `cot` grading contract |
 | `figures/` | figure script and images used in this README |
 
 ## Citation
