@@ -13,7 +13,7 @@ Published at the COLM 2026 Workshop on Efficient Reasoning.
 
 Power sampling draws answers from a sharpened version of the base model, p(y | x)^α with α > 1, and recovers much of the reasoning gain of RL post-training with no training. Running it as sequential Monte Carlo ([Power-SMC](https://github.com/ArminAzizi98/Power-SMC)) makes it fast: N particles decode in parallel and are resampled when their weights become uneven.
 
-CCPS changes two things in that pipeline:
+CCPS keeps that pipeline and changes two things in it:
 
 1. **Chopthin resampling** (Gandy & Lau, 2016) replaces systematic resampling. Instead of forcing all weights to be equal, it bounds the ratio between the largest and smallest weight by η, thins light particles instead of deleting them, and carries the unequal weights forward. It is unbiased, returns exactly N particles, and guarantees an ESS floor of about N/2 at η = 3+√8.
 2. **Semantic-majority selection** replaces the final weight draw. Identical trajectories are merged, equivalent answers are clustered, and the answer supported by the most *distinct* trajectories is returned. For code, programs are clustered by their behavior on model-generated test inputs; no ground-truth tests are used.
@@ -49,7 +49,7 @@ Python 3.10+ and one GPU with at least 48 GB for a 7B model at N = 32. Models do
 
 ## Run
 
-Both arms use the same command; only `--resampler` differs. These flags reproduce the paper setting (N = 32, α = 2, ESS trigger 0.5, block 64, α-ramp over the first 100 tokens, up to 4096 new tokens).
+Both arms of the paper use the same command; only `--resampler` differs. These flags reproduce the paper setting (N = 32, α = 2, ESS trigger 0.5, block 64, α-ramp over the first 100 tokens, up to 4096 new tokens).
 
 ```bash
 # CCPS arm: Chopthin with carried weights
@@ -58,7 +58,7 @@ python3 run_baseline.py --dataset math --model qwen_math --n_particles 32 \
   --resampler chopthin --eta 5.8284271247461903 \
   --problem_idx_list "$(seq -s, 0 499)" --out_dir runs/math/chopthin
 
-# Power-SMC baseline: systematic resampling (same command, one flag)
+# Reference arm for the paired comparison: systematic resampling (the Power-SMC default)
 python3 run_baseline.py --dataset math --model qwen_math --n_particles 32 \
   --max_new_tokens 4096 --temperature 0.5 --ramp_T 100 --seed 42 \
   --resampler systematic \
