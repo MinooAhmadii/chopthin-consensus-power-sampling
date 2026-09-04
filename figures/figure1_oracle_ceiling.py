@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """
-Figure 1 of the paper: oracle coverage (best-of-N), chopthin vs. systematic resampling,
+Oracle-coverage figure (paper Table 3 / Figure 2): oracle coverage (best-of-N), chopthin vs. systematic resampling,
 for all 15 model x benchmark cells. Three model panels side by side (dumbbell per cell:
 open marker = systematic, filled = chopthin; teal = higher, red = lower, gray = tie).
 
-The oracle counts are embedded below and are computed straight from the run outputs
-(the per-question grades / oracle_all.py). Only matplotlib is required.
+The oracle counts are embedded below; they match Table 3 of the paper
+(computed from the run outputs with oracle_all.py). Only matplotlib is required.
 
-    python3 figures/figure1_oracle_ceiling.py    ->  oracle_ceiling_wide.pdf / .png
+    python3 figures/figure1_oracle_ceiling.py    ->  figures/oracle_coverage.pdf / .png
 """
 import matplotlib
 matplotlib.use("Agg")
@@ -20,21 +20,21 @@ DATA = [
         ("MATH500",    423, 435,  500),
         ("GSM8K",     1245, 1251, 1319),
         ("GPQA",       100, 108,  198),
-        ("HumanEval",   81,  96,  164),
+        ("HumanEval",  105, 112,  164),   # 64.0 -> 68.3 (Table 3)
         ("AIME",        16,  20,   90),
     ]),
     ("Qwen2.5-7B", [
         ("MATH500",    406, 415,  500),
         ("GSM8K",     1241, 1250, 1319),
         ("GPQA",       100,  97,  198),
-        ("HumanEval",   88,  90,  164),
+        ("HumanEval",  137, 139,  164),   # 83.5 -> 84.8 (Table 3)
         ("AIME",        37,  37,  270),
     ]),
     ("Qwen3-4B", [
         ("MATH500",    419, 424,  500),
         ("GSM8K",     1236, 1239, 1319),
         ("GPQA",        79,  90,  198),
-        ("HumanEval",  119, 117,  164),
+        ("HumanEval",  119, 121,  164),   # 72.6 -> 73.8 (Table 3)
         ("AIME",        16,  18,   90),
     ]),
 ]
@@ -82,6 +82,8 @@ fig.legend(handles=handles, loc="upper center", ncol=2, frameon=False, fontsize=
            handletextpad=0.4, bbox_to_anchor=(0.5, 1.06))
 
 fig.tight_layout(rect=[0, 0.04, 1, 0.99])
-fig.savefig("oracle_ceiling_wide.pdf", bbox_inches="tight")
-fig.savefig("oracle_ceiling_wide.png", dpi=200, bbox_inches="tight")
-print("saved oracle_ceiling_wide.pdf / .png")
+import os
+out = os.path.join(os.path.dirname(os.path.abspath(__file__)), "oracle_coverage")
+fig.savefig(out + ".pdf", bbox_inches="tight")
+fig.savefig(out + ".png", dpi=200, bbox_inches="tight")
+print("saved", out + ".pdf /", out + ".png")
