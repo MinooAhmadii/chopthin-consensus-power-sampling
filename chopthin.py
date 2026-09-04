@@ -234,12 +234,16 @@ def ess(weights: Sequence[float]) -> float:
 
 
 def ess_floor_from_eta(eta: float, n: int) -> float:
-    """Lemma-2 lower bound on ESS of an n-vector with weight ratio <= eta:
-        ESS >= (4*eta*n + 1 - eta^2) / (eta + 1)^2 .
-    The 4 multiplies only the eta*n term, NOT the whole numerator. Check against the
-    paper's worked example: eta=10, n=32 -> (4*10*32 + 1 - 100)/11^2 = 1181/121 = 9.760.
+    """Lemma-2 lower bound (Gandy & Lau 2016) on the ESS of an n-vector with weight
+    ratio <= eta:
+        ESS >= 4 * (eta*n + 1 - eta^2) / (eta + 1)^2 .
+    The 4 multiplies the WHOLE numerator. This is the value obtained by minimising the
+    bound function h(x) in the paper's proof, and it is the form quoted in Ahmadi et al.
+    (2026), Prop. 1: eta = 3+sqrt(8), n = 32 -> 13.17 (= n/2 - 2*sqrt(2)); n = 16 -> 5.17.
+    (The paper's worked example "eta=10 -> 40n/121 - 99/121" is a typo; minimising h(x)
+    gives 40n/121 - 396/121.) Reporting only: chopthin() never uses this value.
     """
-    return (4.0 * eta * n + 1.0 - eta * eta) / ((eta + 1.0) ** 2)
+    return 4.0 * (eta * n + 1.0 - eta * eta) / ((eta + 1.0) ** 2)
 
 
 def eta_for_ess_floor(gamma: float) -> float:
