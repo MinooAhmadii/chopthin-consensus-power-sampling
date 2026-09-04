@@ -6,14 +6,16 @@ import json, os, glob, sys
 from transformers import AutoTokenizer
 from run_baseline import extract_answer_3tier, grade_answer_3tier
 
-ROOT = "/data/projects/nullanet/experiments/minoo/choptin/runs"
-MODEL = "Qwen/Qwen2.5-Math-7B-Instruct"
+# Root folder that holds the run directories (each with per_run/*.json). Override with
+#   CCPS_RUNS=/path/to/runs python3 oracle_all.py [math|gsm8k|he|all]
+ROOT = os.environ.get("CCPS_RUNS", "runs")
+MODEL = os.environ.get("CCPS_TOKENIZER", "Qwen/Qwen2.5-Math-7B")
 tok = AutoTokenizer.from_pretrained(MODEL)
 
 HE_PROBS = {}
 def load_he():
     if HE_PROBS: return
-    p = "/data/projects/nullanet/experiments/minoo/choptin/HumanEval.jsonl"
+    p = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "HumanEval.jsonl")
     for line in open(p):
         r = json.loads(line)
         HE_PROBS[r["task_id"]] = r
