@@ -7,6 +7,7 @@ is_correct: compare an extracted answer with the gold answer under that benchmar
 
 import re
 
+from grader_utils.he_execute import check_correctness
 from grader_utils.math_grader import grade_answer
 
 _TIER_SPECS = {
@@ -94,11 +95,11 @@ def is_correct(extracted, gold, dataset, problem=None):
         if problem is None:
             return False
         try:
-            from grader_utils.he_execute import check_correctness
             result = check_correctness(problem, extracted, timeout=3.0)
-            return bool(result.get("passed", False))
-        except Exception:
+        except Exception as e:  # per-problem sandbox failure: report it, do not kill the run
+            print(f"[grade] check_correctness failed: {type(e).__name__}: {e}", flush=True)
             return False
+        return bool(result.get("passed", False))
     raise ValueError(f"Unknown dataset: {dataset!r}")
 
 

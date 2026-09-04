@@ -12,6 +12,7 @@ Writes { task_id: ["entry(args)", ...] }.
 """
 import argparse
 import json
+import os
 
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
@@ -53,12 +54,13 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("model", help="qwen_math | qwen | qwen3, or any Hugging Face model id")
     ap.add_argument("--data", default="data/HumanEval.jsonl")
-    ap.add_argument("--out", default=None, help="output file; default he_inputs_<model>.json")
+    ap.add_argument("--out", default=None, help="output file; default data/he_inputs/he_inputs_<model>.json")
     ap.add_argument("--device", default="cuda")
     args = ap.parse_args()
 
     model_id = MODELS.get(args.model, args.model)
-    out_path = args.out or f"he_inputs_{args.model.replace('/', '_')}.json"
+    out_path = args.out or os.path.join("data", "he_inputs", f"he_inputs_{args.model.replace('/', '_')}.json")
+    os.makedirs(os.path.dirname(out_path) or ".", exist_ok=True)
     with open(args.data) as f:
         tasks = [json.loads(l) for l in f if l.strip()]
 
