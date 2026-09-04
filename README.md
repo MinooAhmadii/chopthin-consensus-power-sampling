@@ -16,22 +16,11 @@ Power sampling draws answers from a sharpened version of the base model, p(y | x
 CCPS keeps that pipeline and changes two things in it:
 
 1. **Chopthin resampling** (Gandy & Lau, 2016) replaces systematic resampling. Instead of forcing all weights to be equal, it bounds the ratio between the largest and smallest weight by η, thins light particles instead of deleting them, and carries the unequal weights forward. It is unbiased, returns exactly N particles, and guarantees an ESS floor of about N/2 at η = 3+√8.
-2. **Semantic-majority selection** replaces the final weight draw. Identical trajectories are merged, equivalent answers are clustered, and the answer supported by the most *distinct* trajectories is returned. For code, programs are clustered by their behavior on model-generated test inputs; no ground-truth tests are used.
+2. **Semantic-majority selection** replaces the final weight draw. Identical trajectories are merged, equivalent answers are clustered, and the answer supported by the most *distinct* trajectories is returned.
 
 ## Results
 
-Final-answer accuracy (%). N = 32, α = 2, no fine-tuning.
-
-| Model | Method | MATH500 | GSM8K | AIME | GPQA | HumanEval |
-|---|---|---:|---:|---:|---:|---:|
-| Qwen2.5-Math-7B | Power-SMC | 77.0 | 89.5 | 15.6 | 30.3 | 58.5 |
-| | **CCPS** | **81.4** | **90.8** | **16.7** | **33.8** | **61.6** |
-| Qwen2.5-7B | Power-SMC | 74.2 | 91.0 | 10.4 | 29.3 | 73.2 |
-| | **CCPS** | **76.0** | **91.4** | **12.2** | **30.3** | **76.8** |
-| Qwen3-4B | Power-SMC | 79.0 | 90.1 | 15.6 | 29.8 | **71.3** |
-| | **CCPS** | **81.8** | **92.1** | 15.6 | **40.4** | 70.7 |
-
-Chopthin raises **oracle coverage** (the fraction of problems where at least one of the 32 particles is correct) in 13 of 15 settings. The selector turns that coverage into accuracy.
+Chopthin raises **oracle coverage** (the fraction of problems where at least one of the 32 particles is correct) in 13 of 15 model–benchmark settings; the selector turns that coverage into final-answer accuracy. Full numbers are in the paper.
 
 <p align="center">
   <img src="figures/oracle_coverage.svg" alt="Oracle coverage, Chopthin vs systematic, 15 model x benchmark cells" width="900">
@@ -49,25 +38,18 @@ Python 3.10+ and one GPU with at least 48 GB for a 7B model at N = 32. Models do
 
 ## Run
 
-Both arms of the paper use the same command; only `--resampler` differs. These flags reproduce the paper setting (N = 32, α = 2, ESS trigger 0.5, block 64, α-ramp over the first 100 tokens, up to 4096 new tokens).
+These flags reproduce the paper setting (N = 32, α = 2, ESS trigger 0.5, block 64, α-ramp over the first 100 tokens, up to 4096 new tokens).
 
 ```bash
-# CCPS arm: Chopthin with carried weights
 python3 run_baseline.py --dataset math --model qwen_math --n_particles 32 \
   --max_new_tokens 4096 --temperature 0.5 --ramp_T 100 --seed 42 \
   --resampler chopthin --eta 5.8284271247461903 \
   --problem_idx_list "$(seq -s, 0 499)" --out_dir runs/math/chopthin
-
-# Reference arm for the paired comparison: systematic resampling (the Power-SMC default)
-python3 run_baseline.py --dataset math --model qwen_math --n_particles 32 \
-  --max_new_tokens 4096 --temperature 0.5 --ramp_T 100 --seed 42 \
-  --resampler systematic \
-  --problem_idx_list "$(seq -s, 0 499)" --out_dir runs/math/systematic
 ```
 
 - `--temperature` sets α = 1/temperature, so 0.5 means α = 2. There is no `--alpha` flag.
-- `--eta 5.8284271247461903` is 3+√8, the value whose ESS floor is about N/2. `--resampler chopthin_reset` is the ablation that uses Chopthin's offspring counts but resets the weights.
-- `--seed` is required. The same seed gives both arms identical token streams until their first differing resampling event, so comparisons are paired.
+- `--eta 5.8284271247461903` is 3+√8, the value whose ESS floor is about N/2.
+- `--seed` is required.
 - Datasets (`--dataset`): `math` (MATH500, 500), `gsm8k` (1319), `aime` (2022–2024, 90), `gpqa` (Diamond, 198), `humaneval` (164). All files are in `data/`.
 - Models (`--model`): `qwen_math` (Qwen2.5-Math-7B), `qwen` (Qwen2.5-7B), `qwen3` (Qwen3-4B), `phi` (Phi-3.5-mini). Add your own to `model_map` in `run_baseline.py`.
 
@@ -76,8 +58,7 @@ Each run folder gets `per_question.jsonl` (selected answer and outcome per probl
 ### Selection and metrics
 
 ```bash
-# Oracle coverage (best-of-N) and selected accuracy, Chopthin vs systematic.
-# Edit the run-folder list at the bottom of the script for your own runs.
+# Oracle coverage (best-of-N) and selected accuracy (edit the run-folder list at the bottom)
 CCPS_RUNS=runs python3 oracle_all.py all
 
 # HumanEval: behavior-majority selection, no ground-truth tests
@@ -85,9 +66,9 @@ python3 he_gen_inputs.py qwen_math               # step 1: the base model writes
 python3 he_behavior_select.py --runs-dir runs    # step 2: cluster programs by behavior, vote
 ```
 
-`he_gen_inputs.slurm` runs both HumanEval steps on SLURM. The math/GPQA semantic-majority selector (merge, cluster with the task grader, vote by distinct trajectories) will be added to this repository.
+The math/GPQA semantic-majority selector will be added to this repository.
 
-`python3 figures/figure1_oracle_ceiling.py` regenerates the coverage figure above from the Table 3 counts.
+`python3 figures/figure1_oracle_ceiling.py` regenerates the coverage figure above.
 
 ## Layout
 
