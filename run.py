@@ -3,7 +3,9 @@
     python run.py --dataset math --model qwen_math --resampler chopthin --seed 42 --out_dir runs/math/chopthin
 
 Defaults are the paper's settings: N = 32, alpha = 2, ESS trigger 0.5, block 64, alpha ramp
-over the first 100 tokens, up to 4096 new tokens, eta = 3 + sqrt(8).
+over the first 100 tokens, up to 4096 new tokens, eta = 3 + sqrt(8). For HumanEval the
+prompt/extraction protocol (--he_pipeline: stub | cot | legacy, see he_protocols.py) defaults
+to the paper's choice for the model: cot for qwen, stub for qwen_math and qwen3.
 
 Output, per problem: per_run/p<idx>_s<seed>.json with all N final sequences and their
 weights, and one line in per_question.jsonl with the selected (weight-drawn) answer.
@@ -24,6 +26,7 @@ import transformers
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
 from grader_utils.answers import DATASETS, classify_outcome, extract_answer
+from he_protocols import PAPER_PIPELINE, PROTOCOLS, get_protocol
 from prompts import build_prompt
 from smc import SMCConfig, run_smc
 
@@ -107,8 +110,20 @@ def main():
     p.add_argument("--block_size", type=int, default=64)
     p.add_argument("--ramp_tokens", type=int, default=100, help="alpha ramps from 1 to its final value over this many tokens")
     p.add_argument("--device", default="cuda:0")
+    p.add_argument("--he_pipeline", default=None, choices=sorted(PROTOCOLS),
+                   help="HumanEval prompt/extraction protocol; default is the paper's choice "
+                        "for the model (cot for qwen, stub for qwen_math and qwen3)")
+    p.add_argument("--resume", action="store_true",
+                   help="skip problems whose per_run file already exists and append to per_question.jsonl")
     args = p.parse_args()
     assert args.n_particles > 0
+
+    he_protocol = None
+    if args.dataset == "humaneval":
+        name = args.he_pipeline or PAPER_PIPELINE.get(args.model)
+        if name is None:
+            p.error("--he_pipeline is required for HumanEval with a model outside the paper's three")
+        he_protocol = get_protocol(name)
 
     os.makedirs(os.path.join(args.out_dir, "per_run"), exist_ok=True)
     model_id = MODELS.get(args.model, args.model)
@@ -132,6 +147,7 @@ def main():
         "eta": args.eta,
         "seed": args.seed,
         "problems": args.problems,
+        "he_pipeline": he_protocol.name if he_protocol else None,
         **{k: getattr(cfg, k) for k in cfg.__dataclass_fields__},
         "git_commit": git_commit(),
         "start_time": datetime.datetime.now().isoformat(timespec="seconds"),
@@ -154,8 +170,15 @@ def main():
     indices = parse_problems(args.problems, len(problems))
     print(f"Running {len(indices)} problems, seed {args.seed}, dataset {args.dataset}.")
 
+    if args.resume:
+        done = [i for i in indices
+                if os.path.exists(os.path.join(args.out_dir, "per_run", f"p{i:03d}_s{args.seed}.json"))]
+        if done:
+            print(f"[resume] skipping {len(done)} already-complete problems")
+        indices = [i for i in indices if i not in set(done)]
+
     outcomes = []
-    jsonl = open(os.path.join(args.out_dir, "per_question.jsonl"), "w", buffering=1)
+    jsonl = open(os.path.join(args.out_dir, "per_question.jsonl"), "a" if args.resume else "w", buffering=1)
     run_t0 = time.time()
 
     for pos, idx in enumerate(indices):
@@ -165,7 +188,8 @@ def main():
 
         item = problems[idx]
         question, gold, problem_id = question_and_gold(item, args.dataset, idx)
-        input_text = build_prompt(question, args.dataset, args.model, tokenizer)
+        input_text = build_prompt(question, args.dataset, args.model, tokenizer,
+                                  he_pipeline=he_protocol.name if he_protocol else "legacy")
         input_ids = tokenizer.encode(input_text, return_tensors="pt").to(model.device)
         prompt_len = input_ids.size(1)
 
@@ -181,10 +205,16 @@ def main():
 
         chosen_ids = out["chosen_sequence"][prompt_len:].cpu()
         completion = tokenizer.decode(chosen_ids, skip_special_tokens=True)
-        extracted, extraction_path = extract_answer(completion, args.dataset, problem=item)
+        if he_protocol:
+            # the protocol decides what the candidate program is and how the sandbox sees it
+            extracted, extraction_path = he_protocol.extract(completion, item)
+            grade_item = he_protocol.grade_problem(item)
+        else:
+            extracted, extraction_path = extract_answer(completion, args.dataset, problem=item)
+            grade_item = item
         response_length = int(len(chosen_ids))
         outcome, hit_cap = classify_outcome(
-            extracted, gold, args.dataset, response_length, args.max_new_tokens, problem=item,
+            extracted, gold, args.dataset, response_length, args.max_new_tokens, problem=grade_item,
         )
         outcomes.append(outcome)
         stats = out["stats"]

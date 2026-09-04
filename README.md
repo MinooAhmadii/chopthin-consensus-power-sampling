@@ -52,6 +52,8 @@ python run.py --dataset math --model qwen_math --resampler chopthin --seed 42 --
 - `--problems`: `all` (default), a list `0,1,2`, or a range `0-99`.
 - `--temperature` sets α = 1/temperature; 0.5 means α = 2.
 - `--resampler chopthin_reset` is the ablation of Section 6.2 (Chopthin's offspring counts with the weights reset to 1/N).
+- `--he_pipeline` (HumanEval only): `stub` feeds the raw code stub with nothing appended and cuts the completion at the first canonical stop word; `cot` adds a chain-of-thought instruction and takes the last ```python block as a standalone program. The default is the paper's choice per model: `cot` for `qwen`, `stub` for `qwen_math` and `qwen3` (under `cot` the math model reasons past the token budget before writing code). `legacy` is the earlier completion-ask prompt, kept for reference. The protocol is recorded in `config.json`.
+- `--resume` skips problems whose per-run file already exists, so a sharded or interrupted run can be restarted.
 
 Each run folder gets `per_run/p*.json` (all N particles: token ids, final weights, chosen index), `per_question.jsonl` (selected answer and outcome per problem), and `config.json` (every setting).
 
@@ -62,9 +64,12 @@ Each run folder gets `per_run/p*.json` (all N particles: token ids, final weight
 python oracle_coverage.py --dataset math runs/math/systematic runs/math/chopthin
 
 # HumanEval: behavior-majority selection without ground-truth tests
-python he_gen_inputs.py qwen_math                                                       # the base model writes test inputs
-python he_behavior_select.py --run runs/humaneval/chopthin --inputs he_inputs_qwen_math.json
+python he_gen_inputs.py qwen_math                      # the base model writes test inputs -> data/he_inputs/
+python he_behavior_select.py --run runs/humaneval/systematic runs/humaneval/chopthin \
+                             --inputs data/he_inputs/he_inputs_qwen_math.json
 ```
+
+The test inputs used in the paper are already in `data/he_inputs/` (one file per base model, shared by both resampling arms and all selectors), so the first step is optional. The selector prints, per run, the weight-draw accuracy, the behavior-majority accuracy and the oracle ceiling; it decodes programs with the protocol recorded in the run's `config.json` (`--protocol` and `--tokenizer` override it for older runs). `python tests/test_he_cot_contract.py` checks the `cot` grading contract offline.
 
 The semantic-majority selector for the math and GPQA benchmarks is not in this repository yet.
 
@@ -80,8 +85,10 @@ The semantic-majority selector for the math and GPQA benchmarks is not in this r
 | `prompts.py` | prompt templates |
 | `oracle_coverage.py` | oracle coverage of saved runs |
 | `he_gen_inputs.py`, `he_behavior_select.py` | behavior-majority selector for code |
+| `he_protocols.py` | the HumanEval prompt/extraction protocols (`stub`, `cot`, `legacy`) |
 | `grader_utils/` | answer extraction and grading; HumanEval sandbox |
-| `data/` | MATH500, GSM8K, AIME 2022–2024, GPQA Diamond, HumanEval |
+| `data/` | MATH500, GSM8K, AIME 2022–2024, GPQA Diamond, HumanEval; `he_inputs/` holds the model-written HumanEval test inputs |
+| `tests/` | offline check of the HumanEval `cot` grading contract |
 | `figures/` | figure script and the images above |
 
 ## Citation
