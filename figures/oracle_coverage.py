@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Oracle-coverage figure (paper Figure 2 / Table 3): Chopthin vs systematic resampling for
 all 15 model x benchmark cells. Open marker = systematic, filled = Chopthin; teal = higher,
-red = lower, gray = tie. The counts below are the paper's numbers (from oracle_coverage.py).
+red = lower, gray = tie. The counts below are the paper's numbers (from oracle_coverage.py and,
+for HumanEval, he_behavior_select.py). The Qwen2.5-7B AIME cell pools three seeds (n = 270).
 
     python3 figures/oracle_coverage.py    ->  figures/oracle_coverage.{svg,pdf,png}
 """
@@ -24,7 +25,7 @@ DATA = [
         ("GSM8K",     1241, 1250, 1319),
         ("GPQA",       100,  97,  198),
         ("HumanEval",  137, 139,  164),   # 83.5 -> 84.8 (Table 3)
-        ("AIME",        37,  37,  270),
+        ("AIME",        37,  37,  270),   # 3 seeds (42, 43, 44) x 90 problems, as in Table 1
     ]),
     ("Qwen3-4B", [
         ("MATH500",    419, 424,  500),
