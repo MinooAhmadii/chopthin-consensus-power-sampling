@@ -1,0 +1,15 @@
+name: tests
+on: [push, pull_request]
+jobs:
+  offline-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+      - run: pip install numpy sympy pylatexenc pytest
+      - run: python -m compileall -q .
+      # the HumanEval contract test executes reference solutions in the sandbox; the CI
+      # runner is disposable, so code execution is opted in here
+      - run: CCPS_ALLOW_CODE_EXEC=1 python -m pytest -q tests

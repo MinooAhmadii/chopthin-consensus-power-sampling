@@ -1,6 +1,11 @@
-torch>=2.1
-transformers>=4.44
-numpy
-sympy
-pylatexenc
-matplotlib   # only for figures/oracle_coverage.py
+# Versions used for the paper's runs (kaveh, Python 3.10, CUDA A6000):
+#   torch 2.5.1; transformers 4.45.0 for the Qwen2.5 runs and 4.51.3 for Qwen3-4B
+#   (Qwen3 needs transformers >= 4.51); numpy 1.24.3; sympy 1.13.1; pylatexenc 2.10.
+torch>=2.5,<3
+transformers>=4.51,<5
+numpy>=1.24,<3
+sympy>=1.13,<2
+pylatexenc>=2.10,<3
+huggingface_hub>=0.23      # data/build_gpqa_diamond.py (gated download)
+matplotlib>=3.8            # figures/oracle_coverage.py only
+pytest>=8                  # tests/
