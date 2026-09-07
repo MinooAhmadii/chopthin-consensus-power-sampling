@@ -9,23 +9,26 @@ shortcut), and returns the cluster with the most distinct trajectories; ties go 
 pooled weight. Particles whose answer does not parse do not vote; if nothing parses the
 problem counts as wrong. The gold answer only scores the selected cluster, it never selects.
 
-    python select_majority.py --dataset math runs/math/systematic runs/math/chopthin
-    python select_majority.py --dataset aime --pool runs/aime_s42/chopthin runs/aime_s43/chopthin
+    python scripts/select_majority.py --dataset math runs/math/systematic runs/math/chopthin
+    python scripts/select_majority.py --dataset aime --pool runs/aime_s42/chopthin runs/aime_s43/chopthin
 
 Prints, per run (or per pooled group with --pool): weight-draw accuracy (as run), accuracy of
 the single highest-weight particle, semantic-majority accuracy, oracle coverage, and the mean
 number of distinct trajectories per problem. The paper's CCPS rows are the semantic-majority
 accuracy of the Chopthin arm. HumanEval uses he_behavior_select.py instead.
 """
+import os
+import sys
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))  # repo root
 import argparse
 import glob
 import json
 import math
-import os
 
 from transformers import AutoTokenizer
 
-from grader_utils.answers import extract_answer, is_correct
+from ccps.graders.answers import extract_answer, is_correct
 
 DATASETS = ("math", "gsm8k", "aime", "gpqa")
 

@@ -1,6 +1,6 @@
 """Run one benchmark with one resampler and save every particle.
 
-    python run.py --dataset math --model qwen_math --resampler chopthin --seed 42 --out_dir runs/math/chopthin
+    python scripts/run.py --dataset math --model qwen_math --resampler chopthin --seed 42 --out_dir runs/math/chopthin
 
 Defaults are the paper's settings: N = 32, alpha = 2, ESS trigger 0.5, block 64, alpha ramp
 over the first 100 tokens, up to 4096 new tokens, eta = 3 + sqrt(8). For HumanEval the
@@ -10,12 +10,15 @@ to the paper's choice for the model: cot for qwen, stub for qwen_math and qwen3.
 Output, per problem: per_run/p<idx>_s<seed>.json with all N final sequences and their
 weights, and one line in per_question.jsonl with the selected (weight-drawn) answer.
 """
+import os
+import sys
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))  # repo root
 
 import argparse
 import collections
 import datetime
 import json
-import os
 import random
 import subprocess
 import time
@@ -25,24 +28,19 @@ import torch
 import transformers
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
-from grader_utils.answers import DATASETS, classify_outcome, extract_answer
-from grader_utils.he_execute import assert_execution_allowed
-from he_protocols import PAPER_PIPELINE, PROTOCOLS, get_protocol
-from prompts import build_prompt
-from smc import SMCConfig, run_smc
-
-MODELS = {
-    "qwen_math": "Qwen/Qwen2.5-Math-7B",
-    "qwen": "Qwen/Qwen2.5-7B",
-    "qwen3": "Qwen/Qwen3-4B",
-}
+from ccps import DATA_DIR, MODELS
+from ccps.graders.answers import DATASETS, classify_outcome, extract_answer
+from ccps.graders.he_execute import assert_execution_allowed
+from ccps.he_protocols import PAPER_PIPELINE, PROTOCOLS, get_protocol
+from ccps.prompts import build_prompt
+from ccps.smc import SMCConfig, run_smc
 
 DATA_FILES = {
-    "math": "data/MATH500.json",
-    "gsm8k": "data/gsm8k.jsonl",
-    "aime": "data/aime_combined.jsonl",
-    "gpqa": "data/gpqa_diamond.json",
-    "humaneval": "data/HumanEval.jsonl",
+    "math": os.path.join(DATA_DIR, "MATH500.json"),
+    "gsm8k": os.path.join(DATA_DIR, "gsm8k.jsonl"),
+    "aime": os.path.join(DATA_DIR, "aime_combined.jsonl"),
+    "gpqa": os.path.join(DATA_DIR, "gpqa_diamond.json"),
+    "humaneval": os.path.join(DATA_DIR, "HumanEval.jsonl"),
 }
 
 

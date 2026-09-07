@@ -22,7 +22,6 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-figures = ["matplotlib>=3.8"]
 test = ["pytest>=8"]
 
 [build-system]
@@ -30,9 +29,7 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
-py-modules = ["chopthin", "smc", "run", "prompts", "he_protocols", "select_majority",
-              "he_behavior_select", "he_gen_inputs", "oracle_coverage"]
-packages = ["grader_utils"]
+packages = ["ccps", "ccps.graders"]
 
 [project.urls]
 Repository = "https://github.com/MinooAhmadii/chopthin-consensus-power-sampling"

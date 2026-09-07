@@ -19,8 +19,8 @@ import sys
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
 
-from grader_utils.he_execute import check_correctness     # noqa: E402
-from he_protocols import get_protocol                   # noqa: E402
+from ccps.graders.he_execute import check_correctness  # noqa: E402
+from ccps.he_protocols import get_protocol  # noqa: E402
 
 N = 12
 

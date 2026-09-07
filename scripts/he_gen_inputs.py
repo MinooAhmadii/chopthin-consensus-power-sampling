@@ -10,14 +10,17 @@ resampling arms.
 
 Writes { task_id: ["entry(args)", ...] }.
 """
+import os
+import sys
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))  # repo root
 import argparse
 import json
-import os
 
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
-from run import MODELS
+from ccps import DATA_DIR, MODELS
 
 
 def extract_calls(text, entry, cap=8):
@@ -53,7 +56,7 @@ def extract_calls(text, entry, cap=8):
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("model", help="qwen_math | qwen | qwen3, or any Hugging Face model id")
-    ap.add_argument("--data", default="data/HumanEval.jsonl")
+    ap.add_argument("--data", default=os.path.join(DATA_DIR, "HumanEval.jsonl"))
     ap.add_argument("--out", default=None, help="output file; default data/he_inputs/he_inputs_<model>.json")
     ap.add_argument("--device", default="cuda")
     ap.add_argument("--seed", type=int, default=None,
@@ -63,7 +66,7 @@ def main():
         torch.manual_seed(args.seed)
 
     model_id = MODELS.get(args.model, args.model)
-    out_path = args.out or os.path.join("data", "he_inputs", f"he_inputs_{args.model.replace('/', '_')}.json")
+    out_path = args.out or os.path.join(DATA_DIR, "he_inputs", f"he_inputs_{args.model.replace('/', '_')}.json")
     os.makedirs(os.path.dirname(out_path) or ".", exist_ok=True)
     with open(args.data) as f:
         tasks = [json.loads(l) for l in f if l.strip()]

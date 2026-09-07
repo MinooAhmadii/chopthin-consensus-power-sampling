@@ -1,6 +1,6 @@
 # Benchmark files
 
-Every record has the fields `run.py` reads (`prompt`/`problem`, `answer`, `id`) plus the metadata of its source. The files are the exact ones used for the paper; the checksums let you verify a copy.
+Every record has the fields `scripts/run.py` reads (`prompt`/`problem`, `answer`, `id`) plus the metadata of its source. The files are the exact ones used for the paper; the checksums let you verify a copy.
 
 | File | Records | Source | License | sha256 |
 |---|---|---|---|---|
@@ -22,7 +22,7 @@ The script downloads `gpqa_diamond.csv` from `Idavidrein/gpqa` (pinned revision)
 
 ## HumanEval behavioral test inputs
 
-`he_inputs/he_inputs_<model>.json` holds the call expressions each base model wrote for `he_behavior_select.py` (Section 4.3 of the paper). They were generated once with `he_gen_inputs.py` and are shared by both resampling arms and all selectors.
+`he_inputs/he_inputs_<model>.json` holds the call expressions each base model wrote for `scripts/he_behavior_select.py` (Section 4.3 of the paper). They were generated once with `scripts/he_gen_inputs.py` and are shared by both resampling arms and all selectors.
 
 | File | sha256 |
 |---|---|

@@ -8,7 +8,7 @@ the sandbox, groups programs by identical output behavior, and returns the large
 the result, never by the selector. Problems with no usable inputs fall back to the run's
 weight-drawn particle.
 
-    python he_behavior_select.py --run runs/humaneval/systematic runs/humaneval/chopthin \
+    python scripts/he_behavior_select.py --run runs/humaneval/systematic runs/humaneval/chopthin \
                                  --inputs data/he_inputs/he_inputs_qwen_math.json
 
 Programs are decoded with the run's HumanEval protocol (he_protocols.py: stub / cot), read
@@ -17,19 +17,23 @@ run.py recorded them.
 
 Prints, per run: weight-draw accuracy (as run), behavior-majority accuracy, oracle coverage.
 """
+import os
+import sys
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))  # repo root
 import argparse
 import glob
 import json
 import math
 import multiprocessing
-import os
 from collections import defaultdict
 
 from transformers import AutoTokenizer
 
-from grader_utils.he_execute import (assert_execution_allowed, check_correctness, create_tempdir,
+from ccps import DATA_DIR
+from ccps.graders.he_execute import (assert_execution_allowed, check_correctness, create_tempdir,
                                      reliability_guard, swallow_io, time_limit)
-from he_protocols import PROTOCOLS, get_protocol
+from ccps.he_protocols import PROTOCOLS, get_protocol
 
 
 def softmax(xs):
@@ -169,7 +173,7 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--run", nargs="+", required=True, help="run directories from run.py")
     ap.add_argument("--inputs", required=True, help="he_inputs_<model>.json from he_gen_inputs.py")
-    ap.add_argument("--data", default="data/HumanEval.jsonl")
+    ap.add_argument("--data", default=os.path.join(DATA_DIR, "HumanEval.jsonl"))
     ap.add_argument("--out", default="behavior_majority_results.json")
     ap.add_argument("--protocol", choices=sorted(PROTOCOLS), default=None,
                     help="override the run's he_pipeline (needed for runs made before run.py recorded it)")

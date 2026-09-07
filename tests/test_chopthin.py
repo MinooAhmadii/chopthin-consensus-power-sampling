@@ -6,7 +6,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-import chopthin as ct  # noqa: E402
+import ccps.chopthin as ct  # noqa: E402
 
 ETA = 3 + math.sqrt(8)
 

@@ -7,5 +7,5 @@ numpy>=1.24,<3
 sympy>=1.13,<2
 pylatexenc>=2.10,<3
 huggingface_hub>=0.23      # data/build_gpqa_diamond.py (gated download)
-matplotlib>=3.8            # figures/oracle_coverage.py only
+
 pytest>=8                  # tests/

@@ -5,7 +5,7 @@
 HumanEval prompts depend on the protocol (stub / cot) and live in he_protocols.py.
 """
 
-from he_protocols import get_protocol
+from ccps.he_protocols import get_protocol
 
 MATH_PREFIX = "Can you solve the following math problem? "
 MATH_SUFFIX = " Please reason step by step, and put your final answer within \\boxed{{}}."

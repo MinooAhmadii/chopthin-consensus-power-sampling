@@ -2,23 +2,27 @@
 """Oracle coverage of saved runs: the fraction of problems where at least one of the N final
 particles is correct (paper Figure 2). Also prints each run's selected-answer accuracy.
 
-    python oracle_coverage.py --dataset math runs/math/systematic runs/math/chopthin
+    python scripts/oracle_coverage.py --dataset math runs/math/systematic runs/math/chopthin
 
 Each run directory must come from run.py. The tokenizer named in its config.json decodes the
 particles, and HumanEval programs are extracted with the protocol recorded there
 (he_protocols.py); --tokenizer and --protocol override both for older runs. With two runs,
 the coverage difference (second minus first) is printed as well.
 """
+import os
+import sys
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))  # repo root
 import argparse
 import glob
 import json
-import os
 
 from transformers import AutoTokenizer
 
-from grader_utils.answers import DATASETS, extract_answer, is_correct
-from grader_utils.he_execute import assert_execution_allowed
-from he_protocols import PROTOCOLS, get_protocol
+from ccps import DATA_DIR
+from ccps.graders.answers import DATASETS, extract_answer, is_correct
+from ccps.graders.he_execute import assert_execution_allowed
+from ccps.he_protocols import PROTOCOLS, get_protocol
 
 
 def load_humaneval(path):
@@ -63,7 +67,7 @@ def analyze(run_dir, dataset, humaneval=None, protocol=None, tokenizer=None):
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--dataset", required=True, choices=DATASETS)
-    ap.add_argument("--data", default="data/HumanEval.jsonl", help="HumanEval problems (needed to grade code)")
+    ap.add_argument("--data", default=os.path.join(DATA_DIR, "HumanEval.jsonl"), help="HumanEval problems (needed to grade code)")
     ap.add_argument("runs", nargs="+", help="run directories from run.py")
     ap.add_argument("--protocol", choices=sorted(PROTOCOLS), default=None,
                     help="HumanEval only: override the run's he_pipeline")

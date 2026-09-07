@@ -3,14 +3,14 @@
 """Answer extraction and grading, one rule set per benchmark.
 
 extract_answer: pull the final answer out of a completion (boxed expression first,
-then an "answer is" pattern, then a tail fallback). HumanEval programs are extracted by he_protocols.py, not here.
+then an "answer is" pattern, then a tail fallback). HumanEval programs are extracted by ccps/he_protocols.py, not here.
 is_correct: compare an extracted answer with the gold answer under that benchmark's grader.
 """
 
 import re
 
-from grader_utils.he_execute import CodeExecutionDisabled, check_correctness
-from grader_utils.math_grader import grade_answer
+from ccps.graders.he_execute import CodeExecutionDisabled, check_correctness
+from ccps.graders.math_grader import grade_answer
 
 _TIER_SPECS = {
     "math": [

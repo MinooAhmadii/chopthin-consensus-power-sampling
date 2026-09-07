@@ -22,7 +22,7 @@ from typing import Any, Dict, Optional
 import torch
 import torch.nn.functional as F
 
-from chopthin import chopthin
+from ccps.chopthin import chopthin
 
 
 @dataclass

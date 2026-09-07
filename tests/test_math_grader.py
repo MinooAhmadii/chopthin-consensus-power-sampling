@@ -6,7 +6,7 @@ import pytest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from grader_utils.math_grader import _sympy_parse, grade_answer  # noqa: E402
+from ccps.graders.math_grader import _sympy_parse, grade_answer  # noqa: E402
 
 EQUAL = [
     ("\\frac{1}{2}", "0.5"), ("0.5", "\\frac{1}{2}"), ("\\dfrac{3}{4}", "3/4"), ("2\\sqrt{2}", "2\\sqrt2"),
