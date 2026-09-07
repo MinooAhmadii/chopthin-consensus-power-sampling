@@ -56,7 +56,11 @@ def main():
     ap.add_argument("--data", default="data/HumanEval.jsonl")
     ap.add_argument("--out", default=None, help="output file; default data/he_inputs/he_inputs_<model>.json")
     ap.add_argument("--device", default="cuda")
+    ap.add_argument("--seed", type=int, default=None,
+                    help="seed the sampler for reproducible inputs (the paper's files were generated unseeded)")
     args = ap.parse_args()
+    if args.seed is not None:
+        torch.manual_seed(args.seed)
 
     model_id = MODELS.get(args.model, args.model)
     out_path = args.out or os.path.join("data", "he_inputs", f"he_inputs_{args.model.replace('/', '_')}.json")
