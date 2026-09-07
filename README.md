@@ -7,8 +7,7 @@
 </p>
 
 <p align="center">
-  <a href="https://wdlctc.github.io/efficient-reasoning-2026/"><img src="https://img.shields.io/badge/COLM_2026-Efficient_Reasoning_Workshop-1f4e9c" alt="COLM 2026 Workshop on Efficient Reasoning"></a>
-  <a href="https://openreview.net/forum?id=yfR1TAzTjx"><img src="https://img.shields.io/badge/Paper-OpenReview-b31b1b" alt="Paper on OpenReview"></a>
+  <a href="https://openreview.net/pdf?id=yfR1TAzTjx"><img src="https://img.shields.io/badge/Paper-OpenReview-b31b1b" alt="Paper on OpenReview"></a>
   <a href="https://github.com/MinooAhmadii/chopthin-consensus-power-sampling/releases/tag/v0.1.0"><img src="https://img.shields.io/badge/Release-v0.1.0-6f42c1" alt="Release v0.1.0"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-2e7d32" alt="License: MIT"></a>
   <img src="https://img.shields.io/badge/Python-3.10+-3776ab" alt="Python 3.10+">
