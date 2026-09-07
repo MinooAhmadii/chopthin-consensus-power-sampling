@@ -18,9 +18,6 @@ import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
-# This test only executes HumanEval's own canonical solutions (no model output), so it opts
-# into the sandbox itself; real graders require the caller to set this (README, Security).
-os.environ.setdefault("CCPS_ALLOW_CODE_EXEC", "1")
 
 from grader_utils.he_execute import check_correctness     # noqa: E402
 from he_protocols import get_protocol                   # noqa: E402
@@ -34,6 +31,20 @@ def load_problems():
 
 
 def run(n=N, verbose=True):
+    # This test only executes HumanEval's own canonical solutions (no model output), so it
+    # opts into the sandbox for its own duration; real graders need the caller to set it.
+    previous = os.environ.get("CCPS_ALLOW_CODE_EXEC")
+    os.environ["CCPS_ALLOW_CODE_EXEC"] = "1"
+    try:
+        return _run(n, verbose)
+    finally:
+        if previous is None:
+            del os.environ["CCPS_ALLOW_CODE_EXEC"]
+        else:
+            os.environ["CCPS_ALLOW_CODE_EXEC"] = previous
+
+
+def _run(n, verbose):
     cot = get_protocol("cot")
     probs = load_problems()[:n]
     ok_empty = ok_orig = 0

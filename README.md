@@ -42,7 +42,7 @@ Python 3.10+ and one GPU with at least 48 GB for a 7B model at N = 32. Models do
 MATH500, GSM8K, AIME 2022–2024 and HumanEval are in `data/` with their sources, licenses and checksums listed in [`data/README.md`](data/README.md). **GPQA Diamond is not included**: its license asks users not to publish the questions. Rebuild the exact file the paper used from the gated release with your own Hugging Face access:
 
 ```bash
-huggingface-cli login
+hf auth login                          # or: huggingface-cli login
 python data/build_gpqa_diamond.py      # -> data/gpqa_diamond.json, checksum-verified
 ```
 
@@ -50,8 +50,8 @@ python data/build_gpqa_diamond.py      # -> data/gpqa_diamond.json, checksum-ver
 
 Two graders evaluate model output:
 
-- **HumanEval** runs model-written Python (`grader_utils/he_execute.py`, adapted from OpenAI's human-eval sandbox: subprocess, timeout, memory limit, destructive calls disabled). That is still code execution. It is off by default; run it inside an isolated environment (container or VM, no network, nothing valuable on disk) and set `CCPS_ALLOW_CODE_EXEC=1`. `run.py --dataset humaneval`, `he_behavior_select.py` and `oracle_coverage.py --dataset humaneval` refuse to start without it.
-- **MATH500** compares answers with SymPy, whose parser evaluates Python. `grader_utils/math_grader.py` refuses strings that contain anything a math answer never does (quotes, dunders, statement separators, Python keywords) before parsing.
+- **HumanEval** runs model-written Python (`grader_utils/he_execute.py`, adapted from OpenAI's human-eval sandbox: separate process, timeout, destructive calls disabled). That is still code execution. It is off by default; run it inside an isolated environment (container or VM, no network, nothing valuable on disk) and set `CCPS_ALLOW_CODE_EXEC=1`. `run.py --dataset humaneval`, `he_behavior_select.py` and `oracle_coverage.py --dataset humaneval` refuse to start without it.
+- **MATH500** compares answers with SymPy, whose parser evaluates Python. `grader_utils/math_grader.py` refuses, before parsing, strings that do not look like a plain math answer: quotes, dunders, statement separators, any word other than a few math functions, and power towers or large exponents whose evaluation would run away.
 
 ## Run
 
@@ -79,7 +79,7 @@ Each run folder gets `per_run/p*.json` (all N particles: token ids, final weight
 All three scripts read run folders written by `run.py` and take the tokenizer from each run's `config.json` (`--tokenizer` overrides it).
 
 ```bash
-# Semantic-majority selection (MATH500, GSM8K, AIME, GPQA): the CCPS rows of Table 1 are the
+# Semantic-majority selection (MATH500, GSM8K, AIME, GPQA): the CCPS rows of Table 2 are the
 # "majority" column of the Chopthin arm. Also prints the weight draw, argmax and oracle.
 python select_majority.py --dataset math runs/math/qwen_math/systematic runs/math/qwen_math/chopthin
 
@@ -91,7 +91,7 @@ python he_gen_inputs.py qwen_math          # optional: the base model writes tes
 CCPS_ALLOW_CODE_EXEC=1 python he_behavior_select.py --run runs/humaneval/qwen_math/systematic runs/humaneval/qwen_math/chopthin \
                                                     --inputs data/he_inputs/he_inputs_qwen_math.json
 
-# Oracle coverage (Table 3 / Figure 2) and weight-draw accuracy of two runs
+# Oracle coverage (Figure 2) and weight-draw accuracy of two runs
 python oracle_coverage.py --dataset math runs/math/qwen_math/systematic runs/math/qwen_math/chopthin
 ```
 
@@ -99,7 +99,7 @@ The HumanEval test inputs used in the paper are in `data/he_inputs/` (one file p
 
 ## Reproducing the paper
 
-Table 1 has 15 cells (3 models × 5 benchmarks), each with a systematic arm and a Chopthin arm at seed 42; the Qwen2.5-7B AIME cell additionally uses seeds 43 and 44 and reports the three pooled (n = 270). Everything else is the default.
+Table 2 has 15 cells (3 models × 5 benchmarks), each with a systematic arm and a Chopthin arm at seed 42; the Qwen2.5-7B AIME cell additionally uses seeds 43 and 44 and reports the three pooled (n = 270). Everything else is the default.
 
 ```bash
 for model in qwen_math qwen qwen3; do
@@ -109,10 +109,10 @@ for model in qwen_math qwen qwen3; do
     done
   done
 done
-# then select_majority.py / he_behavior_select.py on each pair, oracle_coverage.py for Table 3
+# then select_majority.py / he_behavior_select.py on each pair, oracle_coverage.py for Figure 2
 ```
 
-The scripts in this repository were checked against the paper's saved runs: `select_majority.py` reproduces all 12 discrete-answer cells of Table 1 (both arms) and the oracle counts of Figure 2 exactly, and `he_behavior_select.py` reproduces the three HumanEval cells (61.6 / 76.8 / 70.7) and their oracles.
+The scripts in this repository were checked against the paper's saved runs: `select_majority.py` reproduces all 12 discrete-answer cells of Table 2 (both arms) and the oracle counts of Figure 2 exactly, and `he_behavior_select.py` reproduces the three HumanEval cells (61.6 / 76.8 / 70.7) and their oracles.
 
 `python figures/oracle_coverage.py` redraws the coverage figure above from the embedded counts.
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Semantic-majority selection (paper Section 4.2 and Appendix B) over saved runs.
+"""Semantic-majority selection (paper Section 4.3 and Appendix D) over saved runs.
 
 For each problem the script decodes the N final particles of a run, parses each answer with
 the benchmark's extractor, merges particles with identical token sequences into distinct

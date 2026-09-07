@@ -6,7 +6,7 @@ Every record has the fields `run.py` reads (`prompt`/`problem`, `answer`, `id`) 
 |---|---|---|---|---|
 | `MATH500.json` | 500 | PRM800K `math_splits/test.jsonl` (the 500-problem MATH subset of Lightman et al., 2023), as shipped by Reasoning-with-Sampling and Power-SMC | MIT (OpenAI PRM800K; problems from Hendrycks et al. MATH, MIT) | `838cd5ffc217ee85…` |
 | `gsm8k.jsonl` | 1319 | GSM8K test split (Cobbe et al., 2021), `openai/gsm8k` on Hugging Face | MIT | `f677cc2d55e35ab3…` |
-| `aime_combined.jsonl` | 90 | AIME 2022, 2023, 2024 (I and II), 90 problems; the `url` field of each record points to the AoPS wiki page it was taken from | problems are copyright MAA; redistributed here for research use as in prior work | `7fc0fde0c2d34989…` |
+| `aime_combined.jsonl` | 90 | AIME 2022, 2023, 2024 (I and II), 90 problems, from the `AI-MO/aimo-validation-aime` dataset on Hugging Face; the `url` field of each record points to the AoPS wiki page of the problem | problems are copyright MAA; redistributed here for research use as in prior work | `7fc0fde0c2d34989…` |
 | `HumanEval.jsonl` | 164 | OpenAI HumanEval `HumanEval.jsonl.gz` (Chen et al., 2021) | MIT | `09a2a07b794cc062…` |
 
 ## GPQA Diamond (not included)
@@ -14,15 +14,15 @@ Every record has the fields `run.py` reads (`prompt`/`problem`, `answer`, `id`) 
 GPQA (Rein et al., 2023) is distributed under a gated license that asks users not to publish the questions, so `gpqa_diamond.json` is **not** in this repository. Rebuild it locally:
 
 ```bash
-huggingface-cli login            # an account that has accepted the GPQA terms
+hf auth login                     # (or huggingface-cli login) an account that has accepted the GPQA terms
 python data/build_gpqa_diamond.py # -> data/gpqa_diamond.json (198 records)
 ```
 
-The script downloads `gpqa_diamond.csv` from `Idavidrein/gpqa`, orders the four choices exactly as in the paper's runs (the order is stored per record in `gpqa_diamond_index.json`, which contains no question text), and checks the result against the checksum of the file the paper used (`b18c9dad2621abd9…`).
+The script downloads `gpqa_diamond.csv` from `Idavidrein/gpqa` (pinned revision), orders the four choices exactly as in the paper's runs (a fixed per-record shuffle, so nothing about the questions is stored here), and checks the result against the checksum of the file the paper used (`b18c9dad2621abd9…`).
 
 ## HumanEval behavioral test inputs
 
-`he_inputs/he_inputs_<model>.json` holds the call expressions each base model wrote for `he_behavior_select.py` (Section 4.2 of the paper). They were generated once with `he_gen_inputs.py` and are shared by both resampling arms and all selectors.
+`he_inputs/he_inputs_<model>.json` holds the call expressions each base model wrote for `he_behavior_select.py` (Section 4.3 of the paper). They were generated once with `he_gen_inputs.py` and are shared by both resampling arms and all selectors.
 
 | File | sha256 |
 |---|---|

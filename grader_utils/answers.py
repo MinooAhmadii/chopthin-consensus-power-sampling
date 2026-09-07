@@ -1,5 +1,5 @@
-# Answer extraction and grading rules from Power-SMC's runner (MIT, Copyright (c) 2026
-# Seyedarmin Azizi). See THIRD_PARTY_NOTICES.md.
+# Written for CCPS: the three-tier answer extraction per benchmark and the grading
+# dispatch. The MATH grader it calls is OpenAI's PRM800K grader (see THIRD_PARTY_NOTICES.md).
 """Answer extraction and grading, one rule set per benchmark.
 
 extract_answer: pull the final answer out of a completion (boxed expression first,

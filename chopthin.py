@@ -123,9 +123,6 @@ def _systematic_counts(masses: Sequence[float], M: int, rng: random.Random) -> L
 # ---------------------------------------------------------------------------
 # Chopthin (Algorithm 1)
 # ---------------------------------------------------------------------------
-REPAIRS = 0   # how many times _force_exact_count had to change a population (diagnostic)
-
-
 def _force_exact_count(idx: List[int], new_w: List[float], N: int) -> Tuple[List[int], List[float]]:
     """Return a population of exactly N offspring with the same total weight.
 
@@ -134,10 +131,8 @@ def _force_exact_count(idx: List[int], new_w: List[float], N: int) -> Tuple[List
     offspring into equal pieces. Both keep sum(new_w) unchanged and touch one particle per
     step; the weight-ratio bound can be exceeded by at most that particle's weight.
     """
-    global REPAIRS
     if len(idx) == N or not idx:
         return idx, new_w
-    REPAIRS += 1
     idx, new_w = list(idx), list(new_w)
     while len(idx) > N:
         k = min(range(len(idx)), key=lambda j: new_w[j])
@@ -261,7 +256,7 @@ def ess_floor_from_eta(eta: float, n: int) -> float:
     The 4 multiplies the WHOLE numerator. This is the value obtained by minimising the
     bound function h(x) in the paper's proof, and it is the form quoted in Ahmadi et al.
     (2026), Prop. 1: eta = 3+sqrt(8), n = 32 -> 13.17 (= n/2 - 2*sqrt(2)); n = 16 -> 5.17.
-    (The paper's worked example "eta=10 -> 40n/121 - 99/121" is a typo; minimising h(x)
+    (Gandy & Lau's worked example "eta=10 -> 40n/121 - 99/121" is a typo; minimising h(x)
     gives 40n/121 - 396/121.) Reporting only: chopthin() never uses this value.
     """
     return 4.0 * (eta * n + 1.0 - eta * eta) / ((eta + 1.0) ** 2)

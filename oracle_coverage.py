@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Oracle coverage of saved runs: the fraction of problems where at least one of the N final
-particles is correct (paper Table 3). Also prints each run's selected-answer accuracy.
+particles is correct (paper Figure 2). Also prints each run's selected-answer accuracy.
 
     python oracle_coverage.py --dataset math runs/math/systematic runs/math/chopthin
 

@@ -5,8 +5,10 @@ Call grade_answer(given_answer: str, ground_truth: str).
 
 Adapted from OpenAI's PRM800K grader (https://github.com/openai/prm800k, MIT License),
 via Reasoning-with-Sampling and Power-SMC. CCPS adds _looks_like_math(): SymPy's
-parse_expr evaluates Python, so model output is refused unless it only contains
-characters that occur in mathematical answers.
+parse_expr evaluates Python, so a string is refused before parsing unless it looks like a
+plain math answer (no quotes, dunders, statement separators or Python names; no word other
+than sqrt/frac/pi/sin/cos/tan/log/exp/inf/abs; no power towers or large exponents, which
+would make the evaluation itself run away).
 """
 
 import re
@@ -25,15 +27,24 @@ TUPLE_CHARS = "()[]"
 
 # Anything a math answer never contains but Python code needs: dunder names, quotes,
 # backticks, statement separators, comments, attribute/keyword tricks.
-_NOT_MATH = re.compile(r"__|[\"'`;#@$|&~\\]|\b(import|lambda|exec|eval|open|getattr|globals|locals)\b")
+_NOT_MATH = re.compile(r"__|[\"'`;#@$|&~\\]")
+# Words that may appear in a normalized answer; any other run of 3+ letters is refused
+# (print, input, open, factorial, ...).
+_MATH_WORDS = {"sqrt", "frac", "pi", "inf", "sin", "cos", "tan", "log", "exp", "abs"}
+# Exponent forms whose evaluation runs away (9**9**9, 10**100000, (10**9)**(10**9)).
+_RUNAWAY_POW = re.compile(r"\*\*\s*\d+\s*\*\*|\*\*\s*\d{2,}|\*\*\s*[({]")
 
 
 def _looks_like_math(expr: str) -> bool:
-    return not _NOT_MATH.search(expr)
+    if _NOT_MATH.search(expr):
+        return False
+    if any(w not in _MATH_WORDS for w in re.findall(r"[A-Za-z]{3,}", expr)):
+        return False
+    return not _RUNAWAY_POW.search(expr.replace("^", "**"))
 
 
 def _sympy_parse(expr: str):
-    """Parses an expression with sympy (refuses anything that is not a math expression)."""
+    """Parses an expression with sympy (refuses anything that does not look like plain math)."""
     if not _looks_like_math(expr):
         raise ValueError("refusing to parse a non-mathematical expression")
     py_expr = expr.replace("^", "**")
