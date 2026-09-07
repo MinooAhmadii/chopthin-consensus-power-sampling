@@ -1,4 +1,4 @@
-# Versions used for the paper's runs (kaveh, Python 3.10, CUDA A6000):
+# Versions used for the paper's runs (Python 3.10, one NVIDIA A6000 per run):
 #   torch 2.5.1; transformers 4.45.0 for the Qwen2.5 runs and 4.51.3 for Qwen3-4B
 #   (Qwen3 needs transformers >= 4.51); numpy 1.24.3; sympy 1.13.1; pylatexenc 2.10.
 torch>=2.5,<3
