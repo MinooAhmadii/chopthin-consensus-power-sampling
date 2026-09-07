@@ -1,6 +1,21 @@
-# Chopthin-Consensus Power Sampling (CCPS)
+<h1 align="center">Chopthin-Consensus Power Sampling</h1>
+<h3 align="center">A Diversity-Preserving Approach to LLM Decoding</h3>
 
-Code for *Chopthin-Consensus Power Sampling: A Diversity-Preserving Approach to LLM Decoding*, accepted at the [COLM 2026 Workshop on Efficient Reasoning](https://wdlctc.github.io/efficient-reasoning-2026/) (October 9, 2026; non-archival). Paper: [OpenReview](https://openreview.net/forum?id=yfR1TAzTjx).
+<p align="center">
+  Minoo Ahmadi, Seyedarmin Azizi, Erfan Baghaei Potraghloo, Mehdi Kamal, Massoud Pedram<br>
+  University of Southern California
+</p>
+
+<p align="center">
+  <a href="https://wdlctc.github.io/efficient-reasoning-2026/"><img src="https://img.shields.io/badge/COLM_2026-Efficient_Reasoning_Workshop-1f4e9c" alt="COLM 2026 Workshop on Efficient Reasoning"></a>
+  <a href="https://openreview.net/forum?id=yfR1TAzTjx"><img src="https://img.shields.io/badge/Paper-OpenReview-b31b1b" alt="Paper on OpenReview"></a>
+  <a href="https://github.com/MinooAhmadii/chopthin-consensus-power-sampling/releases/tag/v0.1.0"><img src="https://img.shields.io/badge/Release-v0.1.0-6f42c1" alt="Release v0.1.0"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-2e7d32" alt="License: MIT"></a>
+  <img src="https://img.shields.io/badge/Python-3.10+-3776ab" alt="Python 3.10+">
+  <a href="https://github.com/MinooAhmadii/chopthin-consensus-power-sampling/actions/workflows/tests.yml"><img src="https://github.com/MinooAhmadii/chopthin-consensus-power-sampling/actions/workflows/tests.yml/badge.svg" alt="tests"></a>
+</p>
+
+Official code for the paper, accepted at the COLM 2026 Workshop on Efficient Reasoning (October 9, 2026; non-archival).
 
 <p align="center">
   <img src="figures/ccps_fig1.svg" alt="Systematic vs Chopthin resampling on the same six particles" width="900">
