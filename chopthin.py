@@ -7,10 +7,8 @@ equally-weighted particles. It bounds the ratio between the largest and smallest
 "thinned" (probabilistically kept/killed). It is unbiased, conserves total weight, returns
 exactly N particles, and (Lemma 2) implicitly lower-bounds the effective sample size.
 
-This module is PURE PYTHON (no torch / numpy) so it can be unit-tested anywhere, including a
-Mac dev box with no GPU. The torch-facing wrapper that plugs into the Power-SMC core lives in
-`smc_samp_utils.py` and simply calls `chopthin(...)` on the CPU weight vector (N is tiny, so
-this is free relative to a model forward pass).
+This module is pure Python (no torch / numpy). The torch wrapper that plugs it into the SMC
+loop is `chopthin_resample` in `smc.py`; it calls `chopthin(...)` on the CPU weight vector.
 
 Public API:
     chopthin(weights, eta, N, rng=None) -> (ancestor_idx, new_weights)
@@ -125,6 +123,36 @@ def _systematic_counts(masses: Sequence[float], M: int, rng: random.Random) -> L
 # ---------------------------------------------------------------------------
 # Chopthin (Algorithm 1)
 # ---------------------------------------------------------------------------
+def _force_exact_count(idx: List[int], new_w: List[float], N: int) -> Tuple[List[int], List[float]]:
+    """Return a population of exactly N offspring with the same total weight.
+
+    Over-count: drop the lightest offspring and hand its weight to the heaviest remaining
+    offspring of the same ancestor (or the heaviest overall). Under-count: split the heaviest
+    offspring into equal pieces. Both keep sum(new_w) unchanged and touch one particle per
+    step; the weight-ratio bound can be exceeded by at most that particle's weight.
+    """
+    if len(idx) == N or not idx:
+        return idx, new_w
+    idx, new_w = list(idx), list(new_w)
+    while len(idx) > N:
+        k = min(range(len(idx)), key=lambda j: new_w[j])
+        lost, anc = new_w[k], idx[k]
+        del idx[k]
+        del new_w[k]
+        same = [j for j in range(len(idx)) if idx[j] == anc]
+        pool = same if same else range(len(idx))
+        j = max(pool, key=lambda j: new_w[j])
+        new_w[j] += lost
+    if len(idx) < N:
+        pad = N - len(idx)
+        j = max(range(len(idx)), key=lambda j: new_w[j])
+        share = new_w[j] / (pad + 1)
+        new_w[j] = share
+        idx += [idx[j]] * pad
+        new_w += [share] * pad
+    return idx, new_w
+
+
 def chopthin(weights: Sequence[float], eta: float, N: int,
              rng: Optional[random.Random] = None) -> Tuple[List[int], List[float]]:
     """Chopthin resampling.
@@ -200,22 +228,10 @@ def chopthin(weights: Sequence[float], eta: float, N: int,
             new_w.append(share)
 
     # Guarantee EXACTLY N offspring (property ii). At a rare integer-rounding boundary the
-    # steps above can yield N+/-1 (e.g. N_L rounds up while the heavy fractional mass is ~0,
-    # so N_U < 0, the chop step allocates 0 extra, and len = N_L + sum_floor > N). Repair in
-    # place by trimming the lightest / padding the heaviest offspring; the distortion is
-    # bounded by a single particle. This is done HERE, at the source, so the contract holds
-    # for EVERY caller -- the previous bare `assert` raised before any caller could repair it,
-    # making the torch wrapper's fix-up unreachable dead code (and crashing real runs unless
-    # asserts are stripped with -O).
-    if len(idx) > N:
-        keep = sorted(range(len(idx)), key=lambda k: new_w[k], reverse=True)[:N]
-        idx = [idx[k] for k in keep]
-        new_w = [new_w[k] for k in keep]
-    elif 0 < len(idx) < N:
-        heaviest = max(range(len(idx)), key=lambda j: new_w[j])
-        pad = N - len(idx)
-        idx = idx + [idx[heaviest]] * pad
-        new_w = new_w + [new_w[heaviest]] * pad
+    # steps above can yield N +/- 1 (e.g. N_L rounds up while the heavy fractional mass is
+    # ~0, so N_U < 0 and the chop step allocates nothing extra). The repair below conserves
+    # the total weight (property iii) and moves at most one particle's weight.
+    idx, new_w = _force_exact_count(idx, new_w, N)
 
     assert len(idx) == N, f"chopthin produced {len(idx)} particles, expected N={N}"
     return idx, new_w
@@ -240,7 +256,7 @@ def ess_floor_from_eta(eta: float, n: int) -> float:
     The 4 multiplies the WHOLE numerator. This is the value obtained by minimising the
     bound function h(x) in the paper's proof, and it is the form quoted in Ahmadi et al.
     (2026), Prop. 1: eta = 3+sqrt(8), n = 32 -> 13.17 (= n/2 - 2*sqrt(2)); n = 16 -> 5.17.
-    (The paper's worked example "eta=10 -> 40n/121 - 99/121" is a typo; minimising h(x)
+    (Gandy & Lau's worked example "eta=10 -> 40n/121 - 99/121" is a typo; minimising h(x)
     gives 40n/121 - 396/121.) Reporting only: chopthin() never uses this value.
     """
     return 4.0 * (eta * n + 1.0 - eta * eta) / ((eta + 1.0) ** 2)

@@ -1,8 +1,44 @@
-[tool.ruff]
-line-length = 88
-target-version = "py310"
+[project]
+name = "ccps"
+version = "0.1.0"
+description = "Chopthin-Consensus Power Sampling: diversity-preserving resampling and consensus selection for training-free LLM reasoning"
+readme = "README.md"
+license = { file = "LICENSE" }
+requires-python = ">=3.10"
+authors = [
+  { name = "Minoo Ahmadi" },
+  { name = "Seyedarmin Azizi" },
+  { name = "Erfan Baghaei Potraghloo" },
+  { name = "Mehdi Kamal" },
+  { name = "Massoud Pedram" },
+]
+dependencies = [
+  "torch>=2.5,<3",
+  "transformers>=4.51,<5",
+  "numpy>=1.24,<3",
+  "sympy>=1.13,<2",
+  "pylatexenc>=2.10,<3",
+  "huggingface_hub>=0.23",
+]
 
-[tool.ruff.format]
-quote-style = "double"
-indent-style = "space"
-line-ending = "lf"
+[project.optional-dependencies]
+figures = ["matplotlib>=3.8"]
+test = ["pytest>=8"]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+py-modules = ["chopthin", "smc", "run", "prompts", "he_protocols", "select_majority",
+              "he_behavior_select", "he_gen_inputs", "oracle_coverage"]
+packages = ["grader_utils"]
+
+[project.urls]
+Repository = "https://github.com/MinooAhmadii/chopthin-consensus-power-sampling"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 110
