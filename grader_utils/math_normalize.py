@@ -1,3 +1,5 @@
+# From OpenAI PRM800K (https://github.com/openai/prm800k, MIT License, Copyright (c) 2023
+# OpenAI), itself adapted from the Hendrycks et al. MATH release (MIT). See THIRD_PARTY_NOTICES.md.
 """
 This logic is largely copied from the Hendrycks' MATH release (math_equivalence).
 """

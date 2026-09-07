@@ -1,3 +1,6 @@
+# Adapted from Power-SMC (https://github.com/ArminAzizi98/Power-SMC), smc_samp_utils.py,
+# Copyright (c) 2026 Seyedarmin Azizi, MIT License. CCPS adds Chopthin resampling and the
+# unequal-weight carry-over; see THIRD_PARTY_NOTICES.md.
 """Sequential Monte Carlo decoding for power sampling.
 
 N particles decode one token at a time. Each carries an importance weight for the target
