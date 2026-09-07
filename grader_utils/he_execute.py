@@ -1,3 +1,7 @@
+# Sandboxed execution of model-written programs against HumanEval's tests.
+# Adapted from OpenAI's human-eval (https://github.com/openai/human-eval, MIT License,
+# Copyright (c) 2021 OpenAI): execution.py with the exec call enabled behind an explicit
+# opt-in (CCPS_ALLOW_CODE_EXEC=1). See README, "Security".
 import contextlib
 import faulthandler
 import io
@@ -7,6 +11,26 @@ import platform
 import signal
 import tempfile
 from typing import Dict, Optional
+
+ALLOW_ENV = "CCPS_ALLOW_CODE_EXEC"
+
+
+class CodeExecutionDisabled(RuntimeError):
+    """Raised when model-written code would be executed without the explicit opt-in."""
+
+
+def assert_execution_allowed():
+    """HumanEval grading and behavior signatures execute model-written Python.
+
+    That is only acceptable inside an isolated environment (a container or VM with no
+    network and nothing valuable on disk). The caller must set CCPS_ALLOW_CODE_EXEC=1 to
+    confirm that; otherwise this raises before anything is run.
+    """
+    if os.environ.get(ALLOW_ENV) != "1":
+        raise CodeExecutionDisabled(
+            "Executing model-written code is disabled. Run inside an isolated environment "
+            f"(no network, disposable filesystem) and set {ALLOW_ENV}=1 to enable it; "
+            "see README, Security.")
 
 
 def unsafe_execute(problem: Dict, completion: str, timeout: float, result):
@@ -70,6 +94,7 @@ def check_correctness(
         the results later even if execution finishes asynchronously.
     """
 
+    assert_execution_allowed()
     manager = multiprocessing.Manager()
     result = manager.list()
 

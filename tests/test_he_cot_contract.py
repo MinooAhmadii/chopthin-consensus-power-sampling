@@ -18,6 +18,9 @@ import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
+# This test only executes HumanEval's own canonical solutions (no model output), so it opts
+# into the sandbox itself; real graders require the caller to set this (README, Security).
+os.environ.setdefault("CCPS_ALLOW_CODE_EXEC", "1")
 
 from grader_utils.he_execute import check_correctness     # noqa: E402
 from he_protocols import get_protocol                   # noqa: E402

@@ -1,13 +1,15 @@
+# Answer extraction and grading rules from Power-SMC's runner (MIT, Copyright (c) 2026
+# Seyedarmin Azizi). See THIRD_PARTY_NOTICES.md.
 """Answer extraction and grading, one rule set per benchmark.
 
 extract_answer: pull the final answer out of a completion (boxed expression first,
-then an "answer is" pattern, then a tail fallback). For code, extract the program.
+then an "answer is" pattern, then a tail fallback). HumanEval programs are extracted by he_protocols.py, not here.
 is_correct: compare an extracted answer with the gold answer under that benchmark's grader.
 """
 
 import re
 
-from grader_utils.he_execute import check_correctness
+from grader_utils.he_execute import CodeExecutionDisabled, check_correctness
 from grader_utils.math_grader import grade_answer
 
 _TIER_SPECS = {
@@ -40,20 +42,11 @@ DATASETS = ("math", "gsm8k", "aime", "gpqa", "humaneval")
 def extract_answer(text, dataset, problem=None):
     """Return (answer_string_or_None, which_rule_matched).
 
-    For humaneval pass the problem dict (needs its entry_point); the answer is the program.
+    Not for humaneval (see he_protocols.py).
     """
     text = text or ""
     if dataset == "humaneval":
-        if problem is None:
-            return None, "none"
-        from grader_utils.he_grader import extract_code
-        try:
-            code = extract_code(text, problem.get("entry_point", ""))
-            if code and len(code.strip()) > 0:
-                return code, "primary"
-        except Exception:
-            pass
-        return None, "none"
+        raise ValueError("HumanEval programs are extracted by the run's protocol: see he_protocols.py")
 
     if dataset not in _TIER_SPECS:
         raise ValueError(f"Unknown dataset: {dataset!r}")
@@ -96,6 +89,8 @@ def is_correct(extracted, gold, dataset, problem=None):
             return False
         try:
             result = check_correctness(problem, extracted, timeout=3.0)
+        except CodeExecutionDisabled:
+            raise
         except Exception as e:  # per-problem sandbox failure: report it, do not kill the run
             print(f"[grade] check_correctness failed: {type(e).__name__}: {e}", flush=True)
             return False

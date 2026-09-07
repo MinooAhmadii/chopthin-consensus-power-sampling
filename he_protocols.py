@@ -7,8 +7,6 @@ program, (iii) what source is executed for a behavioral signature, and (iv) whic
 dict the sandbox grader receives. The sampler, sandbox, clustering and vote do not depend
 on it.
 
-    legacy  completion-ask suffix; the extractor returns a function BODY; the sandbox
-            prepends the problem stub.
     cot     chain-of-thought instruction; the last ```python block is a STANDALONE program
             (stub included), so it is graded with prompt="" to avoid a second copy of the
             signature.
@@ -25,15 +23,8 @@ import textwrap
 from abc import ABC, abstractmethod
 from typing import Dict, Optional, Tuple
 
-from grader_utils.answers import extract_answer
-
 # Protocol used for each paper model when --he_pipeline is not given.
 PAPER_PIPELINE = {"qwen": "cot", "qwen_math": "stub", "qwen3": "stub"}
-
-LEGACY_SUFFIX = (
-    "\n\n# Complete the function above. Output ONLY the function body in a python "
-    "code block (```python ... ```)."
-)
 
 COT_SYSTEM = (
     "You are an expert Python programmer. "
@@ -124,16 +115,6 @@ class HEProtocol(ABC):
         return dict(prob)
 
 
-class LegacyProtocol(HEProtocol):
-    name = "legacy"
-
-    def prompt(self, stub: str) -> str:
-        return stub + LEGACY_SUFFIX
-
-    def extract(self, completion: str, prob: dict) -> Tuple[Optional[str], str]:
-        return extract_answer(completion, "humaneval", problem=prob)
-
-
 class StubProtocol(HEProtocol):
     name = "stub"
 
@@ -160,7 +141,7 @@ class CotProtocol(HEProtocol):
         return {**prob, "prompt": ""}
 
 
-PROTOCOLS: Dict[str, HEProtocol] = {c.name: c() for c in (LegacyProtocol, CotProtocol, StubProtocol)}
+PROTOCOLS: Dict[str, HEProtocol] = {c.name: c() for c in (CotProtocol, StubProtocol)}
 
 
 def get_protocol(name: str) -> HEProtocol:

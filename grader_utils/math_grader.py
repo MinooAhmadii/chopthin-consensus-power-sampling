@@ -2,6 +2,11 @@
 Answer checker API that uses sympy to simplify expressions and check for equality.
 
 Call grade_answer(given_answer: str, ground_truth: str).
+
+Adapted from OpenAI's PRM800K grader (https://github.com/openai/prm800k, MIT License),
+via Reasoning-with-Sampling and Power-SMC. CCPS adds _looks_like_math(): SymPy's
+parse_expr evaluates Python, so model output is refused unless it only contains
+characters that occur in mathematical answers.
 """
 
 import re
@@ -18,8 +23,19 @@ BAD_REGEXES = [r"\^[0-9]+\^", r"\^[0-9][0-9]+"]
 TUPLE_CHARS = "()[]"
 
 
+# Anything a math answer never contains but Python code needs: dunder names, quotes,
+# backticks, statement separators, comments, attribute/keyword tricks.
+_NOT_MATH = re.compile(r"__|[\"'`;#@$|&~\\]|\b(import|lambda|exec|eval|open|getattr|globals|locals)\b")
+
+
+def _looks_like_math(expr: str) -> bool:
+    return not _NOT_MATH.search(expr)
+
+
 def _sympy_parse(expr: str):
-    """Parses an expression with sympy."""
+    """Parses an expression with sympy (refuses anything that is not a math expression)."""
+    if not _looks_like_math(expr):
+        raise ValueError("refusing to parse a non-mathematical expression")
     py_expr = expr.replace("^", "**")
     return sympy_parser.parse_expr(
         py_expr,

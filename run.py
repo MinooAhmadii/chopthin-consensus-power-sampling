@@ -4,7 +4,7 @@
 
 Defaults are the paper's settings: N = 32, alpha = 2, ESS trigger 0.5, block 64, alpha ramp
 over the first 100 tokens, up to 4096 new tokens, eta = 3 + sqrt(8). For HumanEval the
-prompt/extraction protocol (--he_pipeline: stub | cot | legacy, see he_protocols.py) defaults
+prompt/extraction protocol (--he_pipeline: stub | cot, see he_protocols.py) defaults
 to the paper's choice for the model: cot for qwen, stub for qwen_math and qwen3.
 
 Output, per problem: per_run/p<idx>_s<seed>.json with all N final sequences and their
@@ -26,6 +26,7 @@ import transformers
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
 from grader_utils.answers import DATASETS, classify_outcome, extract_answer
+from grader_utils.he_execute import assert_execution_allowed
 from he_protocols import PAPER_PIPELINE, PROTOCOLS, get_protocol
 from prompts import build_prompt
 from smc import SMCConfig, run_smc
@@ -124,6 +125,7 @@ def main():
         if name is None:
             p.error("--he_pipeline is required for HumanEval with a model outside the paper's three")
         he_protocol = get_protocol(name)
+        assert_execution_allowed()      # HumanEval grading runs model-written code (README, Security)
 
     os.makedirs(os.path.join(args.out_dir, "per_run"), exist_ok=True)
     model_id = MODELS.get(args.model, args.model)
@@ -189,7 +191,7 @@ def main():
         item = problems[idx]
         question, gold, problem_id = question_and_gold(item, args.dataset, idx)
         input_text = build_prompt(question, args.dataset, args.model, tokenizer,
-                                  he_pipeline=he_protocol.name if he_protocol else "legacy")
+                                  he_pipeline=he_protocol.name if he_protocol else None)
         input_ids = tokenizer.encode(input_text, return_tensors="pt").to(model.device)
         prompt_len = input_ids.size(1)
 

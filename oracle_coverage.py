@@ -17,6 +17,7 @@ import os
 from transformers import AutoTokenizer
 
 from grader_utils.answers import DATASETS, extract_answer, is_correct
+from grader_utils.he_execute import assert_execution_allowed
 from he_protocols import PROTOCOLS, get_protocol
 
 
@@ -29,7 +30,12 @@ def analyze(run_dir, dataset, humaneval=None, protocol=None, tokenizer=None):
     with open(os.path.join(run_dir, "config.json")) as f:
         cfg = json.load(f)
     tok = AutoTokenizer.from_pretrained(tokenizer or cfg["model"])
-    proto = get_protocol(protocol or cfg.get("he_pipeline") or "legacy") if dataset == "humaneval" else None
+    proto = None
+    if dataset == "humaneval":
+        name = protocol or cfg.get("he_pipeline")
+        if not name:
+            raise ValueError(f"{run_dir}: config.json has no he_pipeline; pass --protocol stub|cot")
+        proto = get_protocol(name)
     n = selected = 0
     covered = set()
     for path in sorted(glob.glob(os.path.join(run_dir, "per_run", "*.json"))):
@@ -65,6 +71,8 @@ def main():
     args = ap.parse_args()
 
     humaneval = load_humaneval(args.data) if args.dataset == "humaneval" else None
+    if humaneval:
+        assert_execution_allowed()      # grading code runs it (README, Security)
     results = []
     for run_dir in args.runs:
         r = analyze(run_dir, args.dataset, humaneval, args.protocol, args.tokenizer)

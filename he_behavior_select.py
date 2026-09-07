@@ -11,9 +11,9 @@ weight-drawn particle.
     python he_behavior_select.py --run runs/humaneval/systematic runs/humaneval/chopthin \
                                  --inputs data/he_inputs/he_inputs_qwen_math.json
 
-Programs are decoded with the run's HumanEval protocol (he_protocols.py: stub / cot /
-legacy), read from the run's config.json; --protocol and --tokenizer override it for runs
-made before run.py recorded them.
+Programs are decoded with the run's HumanEval protocol (he_protocols.py: stub / cot), read
+from the run's config.json; --protocol and --tokenizer override it for runs made before
+run.py recorded them.
 
 Prints, per run: weight-draw accuracy (as run), behavior-majority accuracy, oracle coverage.
 """
@@ -27,8 +27,8 @@ from collections import defaultdict
 
 from transformers import AutoTokenizer
 
-from grader_utils.he_execute import (check_correctness, create_tempdir, reliability_guard,
-                                     swallow_io, time_limit)
+from grader_utils.he_execute import (assert_execution_allowed, check_correctness, create_tempdir,
+                                     reliability_guard, swallow_io, time_limit)
 from he_protocols import PROTOCOLS, get_protocol
 
 
@@ -68,6 +68,7 @@ def behavior(program, exprs):
     global _MGR
     if program is None or not exprs:
         return None
+    assert_execution_allowed()
     if _MGR is None:
         _MGR = multiprocessing.Manager()
     res = _MGR.list()
@@ -96,7 +97,10 @@ def run_settings(run_dir, protocol=None, tokenizer=None):
     """(protocol, tokenizer) for a run: from its config.json unless overridden."""
     with open(os.path.join(run_dir, "config.json")) as f:
         cfg = json.load(f)
-    proto = get_protocol(protocol or cfg.get("he_pipeline") or "legacy")
+    name = protocol or cfg.get("he_pipeline")
+    if not name:
+        raise ValueError(f"{run_dir}: config.json has no he_pipeline; pass --protocol stub|cot")
+    proto = get_protocol(name)
     tok = AutoTokenizer.from_pretrained(tokenizer or cfg["model"])
     return proto, tok
 
@@ -172,6 +176,7 @@ def main():
     ap.add_argument("--tokenizer", default=None,
                     help="override the tokenizer named in the run's config.json")
     args = ap.parse_args()
+    assert_execution_allowed()          # fail before any work if code execution is not opted in
 
     with open(args.inputs) as f:
         inputs = json.load(f)

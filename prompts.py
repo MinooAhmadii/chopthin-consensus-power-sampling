@@ -1,6 +1,8 @@
+# Prompt templates from Power-SMC (MIT, Copyright (c) 2026 Seyedarmin Azizi); the math
+# template follows Reasoning-with-Sampling (Karan & Du). See THIRD_PARTY_NOTICES.md.
 """Prompt templates, one per benchmark. Kept byte-identical to the paper's runs.
 
-HumanEval prompts depend on the protocol (legacy / cot / stub) and live in he_protocols.py.
+HumanEval prompts depend on the protocol (stub / cot) and live in he_protocols.py.
 """
 
 from he_protocols import get_protocol
@@ -18,11 +20,13 @@ GPQA_SUFFIX = (
 CHAT_MODELS = {"qwen3": {"enable_thinking": False}}
 
 
-def build_prompt(question: str, dataset: str, model: str, tokenizer, he_pipeline: str = "legacy") -> str:
-    """Return the full prompt string for one problem."""
+def build_prompt(question: str, dataset: str, model: str, tokenizer, he_pipeline: str = None) -> str:
+    """Return the full prompt string for one problem (HumanEval needs its protocol name)."""
     if dataset == "gpqa":
         return GPQA_PREFIX + question + GPQA_SUFFIX
     if dataset == "humaneval":
+        if he_pipeline is None:
+            raise ValueError("HumanEval needs he_pipeline='stub' or 'cot'")
         return get_protocol(he_pipeline).prompt(question)
     text = MATH_PREFIX + question + MATH_SUFFIX   # math, gsm8k, aime
     if model in CHAT_MODELS:
